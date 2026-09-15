@@ -69,9 +69,13 @@ codebase-memory-mcp, Serena). State which you will use and why. A shortlist of
 the ones that actually fit — not a catalog. This inventory is what the rule-5
 report is checked against.
 
-Orchestrators: you are the only agent that can see the full skill/package
-listing. Before dispatching a subagent, pick the relevant skill yourself and
-pass distilled guidance + the exact tools to use into the subagent's prompt.
+Orchestrators: you are the only agent that sees the full skill/package
+listing — subagents are narrow by default (clean prompt, no inherited skill
+catalog) and get only what you explicitly pass (skills via the dispatch's
+`skill` field, guidance/tools via the prompt, or `inheritSkills` in the
+agent definition when a role truly needs the catalog). Before dispatching
+a subagent, pick the relevant skill yourself and pass distilled guidance +
+the exact tools to use into the subagent's prompt.
 
 ### Rule 3 — Use the right tools; Ponytail + codebase-memory-mcp + Serena are mandatory in their roles
 

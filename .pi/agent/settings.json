@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.84.4",
+  "lastChangelogVersion": "0.85.1",
   "theme": "dark",
   "npmCommand": [
     "bun"
@@ -16,6 +16,7 @@
     "npm:@juicesharp/rpiv-todo",
     "npm:@narumitw/pi-plan-mode",
     "npm:@gotgenes/pi-permission-system",
-    "npm:pi-background-tasks"
+    "npm:pi-background-tasks@latest",
+    "npm:@companion-ai/feynman"
   ]
 }

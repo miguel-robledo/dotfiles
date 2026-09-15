@@ -32,6 +32,10 @@
 .pi/agent/mcp-cache.json
 .pi/agent/mcp-npx-cache.json
 .pi/agent/memory/
+.pi/agent/missions/
+.pi/agent/missions/
+.pi/agent/trust.json
+.pi/agent/run-history.jsonl
 !.ollama
 .ollama/*
 !.ollama/config.json

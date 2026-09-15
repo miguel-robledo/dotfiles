@@ -1,13 +1,14 @@
 require("nvchad.configs.lspconfig").defaults()
 
 -- Configure intelephense with hidden storage directory
-vim.lsp.config('intelephense', {
+vim.lsp.config("intelephense", {
   init_options = {
-    globalStoragePath = os.getenv("HOME") .. "/.intelephense"
-  }
+    globalStoragePath = os.getenv "HOME" .. "/.intelephense",
+  },
 })
 
-local servers = { "ts_ls", "intelephense", "tailwindcss", "pyright", "lua_ls", "biome", "html", "cssls" }
+local servers =
+  { "ts_ls", "intelephense", "rust_analyzer", "tailwindcss", "pyright", "lua_ls", "biome", "html", "cssls" }
 vim.lsp.enable(servers)
 
 -- Add missing LSP keymaps (including code action)

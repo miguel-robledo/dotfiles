@@ -24,10 +24,10 @@
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
         },
         {
-          "id": "deepseek-v4-flash:0731-cloud",
-          "name": "DeepSeek V4 Flash 0731 (Ollama cloud)",
+          "id": "deepseek-v4.1-flash:cloud",
+          "name": "DeepSeek v4.1 Flash (Ollama cloud)",
           "reasoning": true,
-          "input": ["text"],
+          "input": ["text", "image"],
           "contextWindow": 1048576,
           "maxTokens": 32000,
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
