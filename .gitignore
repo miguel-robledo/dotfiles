@@ -23,7 +23,7 @@
 !.claude/rules
 !.claude/settings.json
 !.pi
-# Pi agent — local-only state (credentials, caches, installed packages, session/memory data)
+.pi/tasks/
 .pi/agent/auth.json
 .pi/agent/models-store.json
 .pi/agent/sessions/
@@ -35,6 +35,7 @@
 .pi/agent/missions/
 .pi/agent/missions/
 .pi/agent/trust.json
+.pi/agent/mcp-project-approvals.json
 .pi/agent/run-history.jsonl
 !.ollama
 .ollama/*
@@ -42,3 +43,7 @@
 
 # runtime permission-review logs (machine-local)
 .pi/agent/extensions/pi-permission-system/logs/
+
+# build artifacts & tool caches (e.g. .agents/skills/*/scripts/**/__pycache__)
+__pycache__/
+*.pyc
