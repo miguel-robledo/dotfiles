@@ -123,9 +123,9 @@ has no usable LSP, fall to CBM (tree-sitter) or grep — and say so.
   and non-code files.
 - **Review:** Ponytail `ponytail-review` (scope/YAGNI) + the
   code-review skill or a code-reviewer subagent.
-- **Subagent dispatch:** load the relevant skill first; inject distilled
-  guidance + exact tool names into the prompt; propagate these rules via the
-  prompt preamble.
+- **Subagent dispatch:** see **Rule 7** for authorisation and the role rotation;
+  load the relevant skill first; inject distilled guidance + exact tool names
+  into the prompt; propagate these rules via the prompt preamble.
 
 **Project overrides** (a project `AGENTS.md` may add to, never contradict,
 these): e.g. coloso-v2 requires no git worktrees for agent-executed work, MR +
@@ -201,6 +201,52 @@ placement). Proceed, and state the choice in one line.
 - **Subagents:** a dispatched agent that hits a Rule-6 question reports it back
   to the orchestrator instead of guessing; the orchestrator batches it to the
   user.
+
+### Rule 7 — Delegate wide work; keep judgment local
+
+Delegating is **pre-authorised** — no further approval needed — when the work is:
+
+- bulk recon or wide search whose raw output would otherwise flood context;
+- 2+ independent slices with no shared state (parallel);
+- independent verification of a claim you already hold;
+- long-running work where only the distillate matters.
+
+Not authorised by this rule: single-file edits, decisions, anything that needs a
+Rule 6 question, or work whose dispatch overhead exceeds the child's benefit.
+Use the smallest bounded child.
+
+Start from this rotation, then **scan the full catalog** — `pi list`,
+`~/.pi/agent/agents/`, project `.pi/agents/**`, plus skills/packages/MCP — for
+whatever fits the task better. The rotation is a starting point, not the menu. If
+nothing fits, use the generic `delegate` agent rather than improvising a persona.
+
+  recon → scout · external facts → researcher · check a brief → evidence-auditor
+  implementation slices → worker · verification → reviewer / engineering-code-reviewer
+  direction sanity check → oracle
+
+Model tiers are **enforced** in `subagents.modelScope` — do not fight them:
+
+  tier 1  (glm-5.3)             FORBIDDEN for subagents (quota)
+  tier 2  (glm-5.3-flash)       anything that judges: review, verification, oracle
+  tier 3  (deepseek-v4.1-flash) recon, mechanical, parallel work
+
+Children resolve to the tier default, **not** to your current model. The tier
+names are the contract; the concrete model table lives in `settings.json`, so a
+model change moves the table and keeps the names.
+
+Every dispatch passes: the plan file path (if any), exact paths in scope, the
+tier, and the grants the child needs. Skills arrive via `inheritSkills`/`skills`,
+never in `tools:` (which takes tools and `mcp:` entries only).
+
+MCP tools reach children through the adapter's GATEWAY tools, not per-server
+selectors: grant `mcp` and `mcpScript` in `tools`, and launch the role async
+(foreground children never load ambient extensions). Per-server `mcp:serena` /
+`mcp:codebase-memory-mcp` selectors FAIL for children in this setup, and a failed
+selector blocks the whole launch — do not add them. Verified 2026-09-28: a scout
+child called `mcp` and its search resolved tools from both serena and
+codebase-memory-mcp.
+
+Report every dispatch in the Rule 5 report.
 
 ## Tool selection
 
