@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.85.1",
+  "lastChangelogVersion": "0.87.1",
   "theme": "dark",
   "npmCommand": [
     "bun"
@@ -14,9 +14,27 @@
     "npm:pi-web-access",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:@juicesharp/rpiv-todo",
-    "npm:@narumitw/pi-plan-mode",
     "npm:@gotgenes/pi-permission-system",
     "npm:pi-background-tasks@latest",
-    "npm:@companion-ai/feynman"
-  ]
+    "npm:@companion-ai/feynman",
+    "npm:pi-goal-x",
+    "npm:@plannotator/pi-extension"
+  ],
+  "subagents": {
+    "watchdog": {
+      "enabled": true,
+      "scope": {
+        "enabled": true
+      },
+      "cadence": {
+        "everyNTools": 10
+      },
+      "autoFollow": {
+        "blockers": true,
+        "maxAttempts": 3,
+        "stalemateRepeats": 3
+      }
+    }
+  },
+  "hideThinkingBlock": true
 }

@@ -15,7 +15,8 @@ naming the specific skills, agents, and MCP tools the reader should invoke.
 ## Precedence and ordering
 
 1. The user's direct request in the current message.
-2. This file.
+2. This file (including Rule 6's explicit override of skill-level
+   "default-and-proceed" instructions).
 3. The project's `AGENTS.md` (repo root → subdirectories, nearest wins).
 4. Superpowers bootstrap (using-superpowers) and process skills.
 5. Other skills, packages, and conventions.
@@ -58,6 +59,8 @@ proposal.
   stated in one line ("Took X; say if you want Y").
 - **Both failure modes are violations:** silently picking an option, and
   asking "which do you prefer?" with no research behind it.
+- **When vs how:** Rule 6 governs *when* a decision comes to the user; this
+  rule governs *how* that decision is presented.
 - **Review loops cap at ~3 rounds.** Review once, fix real defects, then
   pause for a human — advisory gates do not converge to zero on their own.
 
@@ -160,6 +163,44 @@ not to every tool in existence.
 Failure to produce this report, omitting a mandatory tool without
 justification, or leaving a fitting tool unused without justification means
 the work is not approved and must be redone with correct tool usage.
+
+### Rule 6 — Ask before you assume; silence is the failure mode
+
+Asking the user is never a violation of this file. Assuming silently is.
+The user wants to confirm *how* work is done, not only to be unblocked.
+
+Ask — via the `ask_user_question` tool, one batched invocation, 2-4 typed
+options per question with one marked recommended — before:
+
+- any material decision (Rule 1's definition);
+- anything where two reasonable engineers would do it differently;
+- choosing a convention, structure, library, dependency, or workflow the
+  user will have to live with;
+- acting on requirements that admit more than one reading;
+- anything hard to reverse;
+- any turn where you would otherwise write "I assumed..." in your report.
+
+Do NOT ask about mechanical, reversible defaults already fixed by this file,
+repo convention, or prior approval (naming, formatting, obvious file
+placement). Proceed, and state the choice in one line.
+
+- **Ask even when you already have a default.** If you know what you would do,
+  present it as the recommended option rather than proceeding silently.
+- **Precedence:** this rule outranks any skill, package, or subagent
+  instruction to "not stall", "just ship the lazy version", or otherwise
+  default-and-proceed. Specifically, Ponytail's "never stall on an answer you
+  can default" governs code-level mechanics only; it never authorizes
+  proceeding on a user-facing decision (approach, workflow, conventions,
+  structure). Where they conflict, this rule wins — fix the skill, not the
+  rule.
+- **Batching:** group every clarifying question for a turn into one
+  `ask_user_question` invocation; never stack invocations back-to-back.
+- **Rule 1 still governs format:** a question is a researched proposal —
+  2-4 options with trade-offs, the evidence, and one recommended — never an
+  open "which do you prefer?" with no research behind it.
+- **Subagents:** a dispatched agent that hits a Rule-6 question reports it back
+  to the orchestrator instead of guessing; the orchestrator batches it to the
+  user.
 
 ## Tool selection
 
