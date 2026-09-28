@@ -18,9 +18,111 @@
     "npm:pi-background-tasks@latest",
     "npm:@companion-ai/feynman",
     "npm:pi-goal-x",
-    "npm:@plannotator/pi-extension"
+    "npm:@narumitw/pi-plan-mode"
   ],
   "subagents": {
+    "defaultModel": "deepseek-v4.1-flash:cloud",
+    "defaultThinking": "medium",
+    "maxThinking": "high",
+    "modelScope": {
+      "enforce": true,
+      "strict": true,
+      "allow": [
+        "ollama/*flash*:cloud"
+      ],
+      "agents": {
+        "reviewer": {
+          "allow": [
+            "ollama/glm-5.3-flash:cloud"
+          ]
+        },
+        "engineering-code-reviewer": {
+          "allow": [
+            "ollama/glm-5.3-flash:cloud"
+          ]
+        },
+        "oracle": {
+          "allow": [
+            "ollama/glm-5.3-flash:cloud"
+          ]
+        }
+      }
+    },
+    "agentOverrides": {
+      "scout": {
+        "thinking": "medium",
+        "inheritSkills": true,
+        "tools": [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "bash",
+          "write",
+          "mcp",
+          "mcpScript",
+          "contact_supervisor"
+        ]
+      },
+      "worker": {
+        "inheritSkills": true,
+        "tools": [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "bash",
+          "edit",
+          "write",
+          "mcp",
+          "mcpScript",
+          "contact_supervisor"
+        ]
+      },
+      "reviewer": {
+        "model": "glm-5.3-flash:cloud",
+        "inheritSkills": true,
+        "tools": [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "bash",
+          "watchdog_diff",
+          "mcp",
+          "mcpScript",
+          "contact_supervisor"
+        ]
+      },
+      "engineering-code-reviewer": {
+        "model": "glm-5.3-flash:cloud",
+        "thinking": "high",
+        "inheritSkills": true,
+        "tools": [
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "bash",
+          "mcp",
+          "mcpScript"
+        ]
+      },
+      "testing-accessibility-auditor": {
+        "inheritSkills": true,
+        "tools": [
+          "read",
+          "write",
+          "edit",
+          "bash",
+          "grep",
+          "find",
+          "ls",
+          "mcp",
+          "mcpScript"
+        ]
+      }
+    },
     "watchdog": {
       "enabled": true,
       "scope": {
