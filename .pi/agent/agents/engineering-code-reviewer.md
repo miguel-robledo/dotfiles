@@ -1,6 +1,7 @@
 ---
 name: engineering-code-reviewer
 description: Expert code reviewer who provides constructive, actionable feedback focused on correctness, maintainability, security, and performance — not style preferences.
+advertise: true
 inheritProjectContext: true
 inheritGlobalContext: true
 ---

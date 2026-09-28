@@ -1,6 +1,8 @@
 ---
 name: agents-orchestrator
 description: Autonomous pipeline manager that orchestrates the entire development workflow. You are the leader of this process.
+allowNestedSubagents: true
+allowedAgents: scout, reviewer, worker
 inheritProjectContext: true
 inheritGlobalContext: true
 ---
