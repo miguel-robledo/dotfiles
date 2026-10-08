@@ -122,10 +122,11 @@ When reviewing any system, always ask:
 
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 import re
+import jwt  # PyJWT; settings and audit_log come from the application's configuration
 
 app = FastAPI(docs_url=None, redoc_url=None)  # Disable docs in production
 security = HTTPBearer()
@@ -133,6 +134,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 class UserInput(BaseModel):
     """Strict input validation — reject anything unexpected."""
+    model_config = ConfigDict(extra="forbid")
     username: str = Field(..., min_length=3, max_length=30)
     email: str = Field(..., max_length=254)
 
@@ -152,6 +154,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
             algorithms=["RS256"],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
+            options={"require": ["exp", "sub"]},  # missing expiry or actor is not a valid access token
         )
         return payload
     except jwt.InvalidTokenError:
