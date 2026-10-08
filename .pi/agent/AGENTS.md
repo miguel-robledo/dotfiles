@@ -342,6 +342,26 @@ training data.
 Do not use it for: refactoring, scripts from scratch, debugging business
 logic, code review, or general programming concepts.
 
+## Locally edited managed skills
+
+Some skills in `~/.pi/agent/skills/` are installed by the skills.sh CLI (global
+lock: `~/.local/state/skills/.skill-lock.json`) and deliberately **edited after
+install**. `bunx skills@latest update -g` re-copies any skill whose upstream
+hash differs from the lock entry (`cli.mjs:7396`, `latestHash !==
+entry.skillFolderHash`) — the local file is never hashed, so these edits are
+**silently reverted** on the next upstream publish with no warning. Re-apply
+after every `skills update`:
+
+- `security-threat-model/SKILL.md` — description relaxed to proactive
+  (upstream ships "Trigger only when the user explicitly asks …").
+- `thinking-pre-mortem/SKILL.md` — `disable-model-invocation: false` (upstream
+  ships `true`, which hides it from the system prompt entirely; pi honors the
+  field at `dist/core/skills.js:262` and filters at `:279`).
+
+Prefer adding new always-on skills to `~/.pi/agent/skills/` directly (not via
+the CLI) so no updater owns them. `security-and-hardening` is CLI-managed and
+unedited — leave it managed.
+
 ## Memory
 
 Memory is handled by the `pi-memory` package — extension tools
