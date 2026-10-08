@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "1.0.4",
   "theme": "dark",
   "npmCommand": [
     "bun"
@@ -17,8 +17,8 @@
     "npm:@gotgenes/pi-permission-system",
     "npm:pi-background-tasks@latest",
     "npm:@companion-ai/feynman",
-    "npm:pi-goal-x",
-    "npm:@narumitw/pi-plan-mode"
+    "npm:@narumitw/pi-plan-mode",
+    "npm:billion-context"
   ],
   "subagents": {
     "defaultModel": "deepseek-v4.1-flash:cloud",
@@ -60,7 +60,6 @@
           "bash",
           "write",
           "mcp",
-          "mcpScript",
           "contact_supervisor"
         ]
       },
@@ -75,7 +74,6 @@
           "edit",
           "write",
           "mcp",
-          "mcpScript",
           "contact_supervisor"
         ]
       },
@@ -90,7 +88,6 @@
           "bash",
           "watchdog_diff",
           "mcp",
-          "mcpScript",
           "contact_supervisor"
         ]
       },
@@ -104,8 +101,7 @@
           "find",
           "ls",
           "bash",
-          "mcp",
-          "mcpScript"
+          "mcp"
         ]
       },
       "testing-accessibility-auditor": {
@@ -118,8 +114,7 @@
           "grep",
           "find",
           "ls",
-          "mcp",
-          "mcpScript"
+          "mcp"
         ]
       }
     },
@@ -131,12 +126,11 @@
       "cadence": {
         "everyNTools": 10
       },
-      "autoFollow": {
-        "blockers": true,
-        "maxAttempts": 3,
-        "stalemateRepeats": 3
-      }
+      "stalemateRepeats": 3
     }
   },
-  "hideThinkingBlock": true
+  "hideThinkingBlock": true,
+  "extensions": [
+    "-builtin:mcp"
+  ]
 }
