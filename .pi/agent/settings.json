@@ -16,7 +16,8 @@
     "npm:@juicesharp/rpiv-todo",
     "npm:@gotgenes/pi-permission-system",
     "npm:pi-background-tasks@latest",
-    "npm:@narumitw/pi-plan-mode"
+    "npm:@narumitw/pi-plan-mode",
+    "npm:stepstone"
   ],
   "subagents": {
     "defaultModel": "deepseek-v4.1-flash:cloud",
@@ -117,9 +118,9 @@
       }
     },
     "watchdog": {
-      "enabled": true,
+      "enabled": false,
       "scope": {
-        "enabled": true
+        "enabled": false
       },
       "cadence": {
         "everyNTools": 10
