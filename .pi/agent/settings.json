@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.0.4",
+  "lastChangelogVersion": "1.2.0",
   "theme": "dark",
   "npmCommand": [
     "bun"
@@ -16,13 +16,11 @@
     "npm:@juicesharp/rpiv-todo",
     "npm:@gotgenes/pi-permission-system",
     "npm:pi-background-tasks@latest",
-    "npm:@companion-ai/feynman",
-    "npm:@narumitw/pi-plan-mode",
-    "npm:billion-context"
+    "npm:@narumitw/pi-plan-mode"
   ],
   "subagents": {
     "defaultModel": "deepseek-v4.1-flash:cloud",
-    "defaultThinking": "medium",
+    "defaultThinking": "high",
     "maxThinking": "high",
     "modelScope": {
       "enforce": true,
@@ -50,7 +48,7 @@
     },
     "agentOverrides": {
       "scout": {
-        "thinking": "medium",
+        "thinking": "high",
         "inheritSkills": true,
         "tools": [
           "read",
@@ -129,7 +127,7 @@
       "stalemateRepeats": 3
     }
   },
-  "hideThinkingBlock": true,
+  "hideThinkingBlock": false,
   "extensions": [
     "-builtin:mcp"
   ]

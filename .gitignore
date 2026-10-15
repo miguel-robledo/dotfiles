@@ -37,6 +37,8 @@
 .pi/agent/trust.json
 .pi/agent/mcp-project-approvals.json
 .pi/agent/run-history.jsonl
+.pi/agent/pi-subagents/
+.pi/acp.log
 !.ollama
 .ollama/*
 !.ollama/config.json

@@ -15,7 +15,15 @@
       "rm -rf /": "deny",
       "rm -rf ~": "deny",
       "rm -rf /*": "deny",
-      "sudo *": "ask",
+      "sudo *": "deny",
+      "sudo": "deny",
+      "ssh *": "deny",
+      "ssh": "deny",
+      "scp *": "deny",
+      "scp": "deny",
+      "sftp *": "deny",
+      "sftp": "deny",
+      "rsync *": "deny",
       "git push --force*": "deny"
     },
     "external_directory": "allow"
