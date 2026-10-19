@@ -442,9 +442,9 @@ only two — **never treat the advertised list as the menu**. If nothing fits, u
 
 Model tiers are **enforced** in `subagents.modelScope` — do not fight them:
 
-  tier 1  (glm-5.3)             FORBIDDEN for subagents (quota)
-  tier 2  (glm-5.3-flash)       anything that judges: review, verification, oracle
-  tier 3  (deepseek-v4.1-flash) recon, mechanical, parallel work
+  tier 1  (deepseek-v4.1-flash:1017-cloud)
+  tier 2  (deepseek-v4.1-flash:1017-cloud)  anything that judges: review, verification, oracle
+  tier 3  (deepseek-v4.1-flash:1017-cloud)  recon, mechanical, parallel work
 
 Children resolve to the tier default, **not** to your current model. The tier
 names are the contract; the concrete model table lives in `settings.json`, so a
