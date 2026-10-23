@@ -22,7 +22,8 @@
       "*.netrc": "deny",
       "*.pgpass": "deny",
       ".docker/config.json": "deny",
-      "*/.docker/config.json": "deny"
+      "*/.docker/config.json": "deny",
+      "~/.config/fish/fish_variables": "deny"
     },
     "bash": {
       "*": "allow",

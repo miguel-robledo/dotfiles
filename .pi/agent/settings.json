@@ -1,6 +1,6 @@
 {
   "lastChangelogVersion": "1.3.0",
-  "theme": "dark",
+  "theme": "nord",
   "npmCommand": [
     "bun"
   ],
@@ -16,8 +16,7 @@
     "npm:@juicesharp/rpiv-todo",
     "npm:@gotgenes/pi-permission-system",
     "npm:pi-background-tasks@latest",
-    "npm:@narumitw/pi-plan-mode",
-    "npm:stepstone"
+    "npm:@narumitw/pi-plan-mode"
   ],
   "subagents": {
     "defaultModel": "deepseek-v4.1-flash:1017-cloud",
@@ -27,7 +26,7 @@
       "enforce": true,
       "strict": true,
       "allow": [
-        "ollama/*flash*:cloud"
+        "ollama/*flash*cloud"
       ],
       "agents": {
         "reviewer": {
