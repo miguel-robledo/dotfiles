@@ -17,6 +17,14 @@ Four rules. Read all four before acting; they are short on purpose.
   it honestly. This is what replaced the old rules 4 and 5.
 - **Rule 4 — Delegation.** Wide work goes to subagents; judgment stays local.
 
+**Rule 0 — the scan gate.** `APPEND_SYSTEM.md` (loaded ahead of this file) forces
+one line as the first line of every task:
+`Scan: skill=<x|none> · tool=<cbm|serena|plain> · agent=<x|none> · why=<clause>`.
+It deliberately lists no tools: it names where the complete inventory lives and
+requires a skim before deciding, because a partial list reads as the whole world.
+Rule 0 makes the tool decision visible *before* the first action; Rule 2 still
+governs which tool is correct.
+
 Supporting files, all in this directory:
 
 | File | What it is |

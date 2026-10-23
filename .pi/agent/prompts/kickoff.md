@@ -10,11 +10,10 @@ $@
 1. **Plan before acting.** Stay read-only until the plan is approved. Finish with
    `plan_mode_complete` and a decision-ready plan naming the files, the approach,
    the verification, and every Rule 1 decision the plan depends on.
-2. **Rule 2 — prove the tool scan.** Name (a) the mandatory set for this task type,
-   (b) any *non-obvious* skill/package/MCP/agent that fits, with the trigger that
-   fired it (`TOOLS.md` §2 Skill triggers), and (c) any fitting tool you are
-   deliberately skipping, with one line of justification. "None applied" without
-   evidence is not acceptable.
+2. **Rule 2 — scan gate.** `APPEND_SYSTEM.md` already forces the `Scan:` line as
+   your first line. In a kickoff, extend it: name the mandatory set per plan step
+   and every non-obvious skill/package/MCP/agent that fits, with the trigger that
+   fired it. "None applied" without a named reason is not acceptable.
 3. **Rule 1 — surface the decisions.** Before the first mutating action, list the
    decisions this task forces from the ten classes, batched as questions with
    options and a recommendation. If there are none, say so explicitly.
