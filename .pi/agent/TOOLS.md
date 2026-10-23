@@ -38,7 +38,6 @@ the same turn. It is hand-maintained — if it disagrees with disk, disk wins.
 | `owasp-top-10-testing` | usestrix/strix | no — CLI-managed, silently reverted | Test an application against the OWASP Top 10 with Strix — autonomous AI agents that attempt real exploits for each category of the current OWASP Top 10:2025 (broken access control including SSRF,… |
 | `penetration-testing-with-strix` | usestrix/strix | no — CLI-managed, silently reverted | Pentest a web app, API, codebase, repository, URL, domain, or IP with Strix — autonomous AI penetration testing that exploits and proves vulnerabilities (OWASP Top 10 and beyond — injection, XSS,… |
 | `pptx` | anthropics/skills | no — CLI-managed, silently reverted | Use this skill any time a .pptx or .potx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting… |
-| `project-start` | local (hand-written, unmanaged) | yes | Run the one-time project-start ritual on a NEW project — draft the charter, decompose the roadmap into horizon-labelled goals with dependencies, seed them atomically into the stepstone worklist, and render the boss-facing HTML roadmap. Not for features on an existing project, and not for per-task planning. |
 | `rust-async-patterns` | wshobson/agents | no — CLI-managed, silently reverted | Master Rust async programming with Tokio, async traits, error handling, and concurrent patterns. Use when building async Rust applications, implementing concurrent systems, or debugging async code. |
 | `rust-best-practices` | apollographql/skills | no — CLI-managed, silently reverted | > Guide for writing idiomatic Rust code based on Apollo GraphQL's best practices handbook. Use this skill when: (1) writing new Rust code or functions, (2) reviewing or refactoring existing Rust… |
 | `security-and-hardening` | addyosmani/agent-skills | no — CLI-managed, silently reverted | Hardens code against vulnerabilities. Use when auditing an input handler for vulnerabilities, when handling user input, authentication, data storage, or external integrations, or when checking a… |
@@ -103,7 +102,6 @@ description says *what it does*; this table states *when it is mandatory*.
 
 | Skill | Load it when |
 |---|---|
-| `project-start` | Starting a NEW project, or the user asks to plan a whole project up front — charter + roadmap + atomic seed + HTML render. Not for features on an existing project. |
 | `ponytail` | Before writing ANY new code, or when the user asks for the smallest/simplest version. Decides how much to build. |
 | `ponytail-review` | Reviewing a diff, PR, or commit for over-engineering. |
 | `ponytail-audit` | Whole-repo audit: bugs, bloat, risk, what to delete. |
@@ -191,7 +189,6 @@ Declared in `settings.json` → `packages`. Installed under `git/` and `npm/`.
 | `npm:pi-subagents` | (describe me) |
 | `npm:pi-mcp-adapter` | (describe me) |
 | `git:github.com/shadcn/improve` | The `improve` skill (read-only codebase surveys → handoff plans) |
-| `stepstone` | Project roadmap store and driver: `.worklist/worklist.json` committed in-repo, first-class `dependsOn` edges with `ready`/`next`/`waves` sequencing, a model-facing `worklist` tool, a `/tasks` dashboard, and a loopback web board. **No milestones in 0.12.1** — `group` carries the horizon instead. See the `project-start` skill. |
 | `npm:pi-memory` | (describe me) |
 | `npm:pi-web-access` | (describe me) |
 | `npm:@juicesharp/rpiv-ask-user-question` | (describe me) |
