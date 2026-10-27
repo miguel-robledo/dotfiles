@@ -1,5 +1,6 @@
 {
   "thinkingLevel": "high",
   "implementationPlanRetention": "keep",
-  "toggleShortcut": "alt+p"
+  "toggleShortcut": "alt+p",
+  "defaultPlanTools": ["read", "bash", "grep", "find", "ls", "mcp", "subagent"]
 }
