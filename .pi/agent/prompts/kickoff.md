@@ -38,7 +38,9 @@ $@
 3. **Rule 1 — surface the decisions.** Before the first mutating action, list the
    decisions this task forces from the ten classes, batched as questions with
    options and a recommendation. If there are none, say so explicitly.
-4. **OpenSpec.** If this repository has an `openspec/` directory, decide explicitly
+4. **Rule 3 — arm the watchdog** before the first mutating action (15-minute ping,
+   global `WATCHDOG.md`) and state where the findings will be recorded.
+5. **OpenSpec.** If this repository has an `openspec/` directory, decide explicitly
    whether the task needs a change proposal, and say why in one line.
 
 Do not call `plan_mode_complete` until the `## Capabilities` table exists, every row

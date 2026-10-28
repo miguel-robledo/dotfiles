@@ -7,19 +7,22 @@ task, every skill, and every subagent you dispatch. When a skill, template,
 package, or workflow document conflicts with these rules, these rules win — fix
 the conflicting document rather than silently deviating.
 
-Three rules. Read all three before acting; they are short on purpose.
+Four rules. Read all four before acting; they are short on purpose.
 
 - **Rule 1 — Ask before you act.** Ten decision classes require the user's yes
   before you touch anything.
 - **Rule 2 — Tool selection.** Ponytail decides, CBM maps, Serena executes.
   The curated inventory lives below; the complete list is `TOOLS.md`.
-- **Rule 3 — Delegation.** Wide work goes to subagents; judgment stays local.
+- **Rule 3 — Watchdog.** On multi-step work, arm the 15-minute ping and answer
+  it honestly. This is what replaced the old rules 4 and 5.
+- **Rule 4 — Delegation.** Wide work goes to subagents; judgment stays local.
 
 Supporting files, all in this directory:
 
 | File | What it is |
 |---|---|
 | `TOOLS.md` | Complete inventory: every skill, package, MCP server, and agent, with source and when to use it. Read it when the inline table below doesn't cover the tool you need. |
+| `WATCHDOG.md` | The standing checklist the Rule 3 ping asks you to answer. |
 
 The user's direct request in the current message always outranks this file.
 
@@ -33,7 +36,7 @@ The user's direct request in the current message always outranks this file.
 
 Task-start ordering, every time: (a) load the skill that fits the task;
 (b) pick tools from Rule 2's inventory; (c) do the research the task needs;
-(d) act.
+(d) act; (e) arm the watchdog (Rule 3) if the work is multi-step.
 
 ---
 
@@ -91,7 +94,7 @@ question.
   after the work already exists is a report, not a question.
 - **Self-report the miss.** The moment you notice you decided something in
   classes 1–10 without asking, surface it immediately — do not wait for the user
-  to find it.
+  to find it. Rule 3's ping exists to catch what you did not notice.
 - **Correct with evidence.** When docs, best practice, or real data contradict
   the user's stated approach, push back with the evidence and propose the better
   path. Silently following an inferior instruction is also a violation.
@@ -158,7 +161,7 @@ has no usable LSP, fall to CBM (tree-sitter) or grep — and say so.
   and non-code files.
 - **Review:** Ponytail `ponytail-review` (scope/YAGNI) + the code-review skill
   or a code-reviewer subagent.
-- **Subagent dispatch:** see **Rule 3** for authorisation and the role rotation;
+- **Subagent dispatch:** see **Rule 4** for authorisation and the role rotation;
   load the relevant skill first; inject distilled guidance + exact tool names
   into the prompt.
 
@@ -294,7 +297,7 @@ scope back to them before the first command. They also fail Rule 1 class 6
 | `pi-mcp-adapter` | MCP gateway (`mcp`, `mcp__<server>`) | Any MCP server |
 | `pi-memory` | `memory_*` + `scratchpad` tools | Durable facts, session handoff |
 | `pi-web-access` | `web_search`, `fetch_content`, `source_check`, `get_search_content` | Public facts, source verification |
-| `pi-background-tasks` | `bg_run` / `bg_status` / `bg_logs` / `bg_kill` | Long commands, servers, builds |
+| `pi-background-tasks` | `bg_run` / `bg_status` / `bg_logs` / `bg_kill` — and Rule 3's watchdog ping | Long commands, servers, the ping |
 | `@juicesharp/rpiv-ask-user-question` | `ask_user_question` | Every Rule 1 proposal |
 | `@juicesharp/rpiv-todo` | `todo` tool | Multi-step task tracking |
 | `@gotgenes/pi-permission-system` | Command/path permission policy | Trust boundaries |
@@ -343,7 +346,44 @@ decision-relevant. The inventory is hand-maintained: if it disagrees with disk,
 
 ---
 
-## Rule 3 — Delegate wide work; keep judgment local
+## Rule 3 — Watchdog: arm the ping, answer it honestly
+
+The old rules 4 and 5 tried to enforce good tool usage with a preamble and an
+end-of-task report. They did not work, and they are deleted. This replaces
+them: a periodic self-review that happens *while* the work is still changeable.
+
+**Arm it.** At task start, if the work is multi-step or will mutate anything,
+arm a background ping before the first substantive action: a `bg_run` sleeping
+~15 minutes with a watchdog payload, `isAgent: false`, notifications on. Each
+ping is one armed sleep — when it fires, do the review below and re-arm if the
+task is still running. Single-question or read-only tasks do not need it.
+
+**Answer it.** On every ping, answer the checklist in `WATCHDOG.md`, in writing,
+and keep it short — a clean review is one line. The four questions:
+
+1. **Tools** — did I use the skills, tools, agents, and packages that fit, and
+   is every one I skipped justified in one line?
+2. **Rule 1** — did I decide anything in any of the ten classes without asking?
+3. **Claims vs evidence** — is every "passed", "fixed", "done", or "verified"
+   backed by output in the transcript?
+4. **Scope** — did I drift past what was asked, or silently drop something that
+   was?
+
+**Record it.** Write findings to `.pi/watchdog/REVIEW-<YYYY-MM-DDTHHMM>.md` in
+the project (or `~/.pi/agent/watchdog/` when there is no project), with what was
+checked, the evidence, severity, and the recommended action.
+
+**False-alarm guard.** Before treating any alert as a finding, verify it against
+git. Branch switches produce phantom diffs — a past watchdog alert on
+`login.ts` was only an inter-branch difference. Never undo work on a watchdog
+alert alone.
+
+**Disarm** when the task ends or the user says stop. Report anything
+unresolved.
+
+---
+
+## Rule 4 — Delegate wide work; keep judgment local
 
 Delegation is authorised by **pattern**, not by job title. A persona is the weakest
 reason to dispatch: the production evidence (Anthropic's multi-agent postmortem,
@@ -441,7 +481,7 @@ as follows when a skill or table mentions Claude Code tool names:
   session and say so — never invent `Task` calls.
 - Todo/task tracking → the `rpiv-todo` tools; plan files or a
   repo-local `TODO.md` as fallback.
-- Background shell jobs (servers, builds, watchers) →
+- Background shell jobs (servers, builds, watchers, the Rule 3 ping) →
   `pi-background-tasks` (`bg_run`/`bg_status`/`bg_kill`); agent delegation →
   `pi-subagents` (`subagent` tool).
 - Structured proposals / decisions → the `ask-user-question` tool (typed

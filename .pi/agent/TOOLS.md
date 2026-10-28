@@ -221,7 +221,7 @@ each role.
 delegate — the production evidence (Anthropic's multi-agent postmortem,
 Cognition's *Don't Build Multi-Agents*) is that parallel work pays only when the
 sub-tasks cannot disagree: reading parallelises, writing does not. Delegation is
-authorised by **pattern** (AGENTS.md Rule 3); the agent is chosen by *capability
+authorised by **pattern** (AGENTS.md Rule 4); the agent is chosen by *capability
 difference* — a different toolset, a different context window, or a blackbox check
 — never by job title alone.
 
@@ -355,7 +355,7 @@ difference* — a different toolset, a different context window, or a blackbox c
 | `specialized-model-qa` | End-to-end audit of an ML or statistical model: replication, calibration, interpretability. |
 | `research-synthesist` | Literature review and evidence synthesis with honest weighting. |
 | `lsp-index-engineer` | LSP client orchestration and semantic indexing. |
-| `agents-orchestrator` | Nested multi-agent pipelines (`allowNestedSubagents`). Use only inside Rule 3's authorised patterns — never to build a swarm. |
+| `agents-orchestrator` | Nested multi-agent pipelines (`allowNestedSubagents`). Use only inside Rule 4's authorised patterns — never to build a swarm. |
 
 ### Reachable but without a capability difference
 
@@ -363,6 +363,6 @@ Every agent above is reachable by name, and this list is deliberately exhaustive
 rather than curated. What the list does *not* claim is that each row is worth a
 dispatch: the majority are job-title personas whose capability does not differ
 from the main agent's — no distinct toolset, no distinct context window, no
-blackbox check. Per Rule 3 a dispatch still needs an authorised **pattern**. If
+blackbox check. Per Rule 4 a dispatch still needs an authorised **pattern**. If
 the only reason to reach for a row is its job title, do the work yourself and say
 so in one line.
