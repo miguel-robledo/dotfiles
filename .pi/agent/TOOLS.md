@@ -43,6 +43,7 @@ the same turn. It is hand-maintained — if it disagrees with disk, disk wins.
 | `security-and-hardening` | addyosmani/agent-skills | no — CLI-managed, silently reverted | Hardens code against vulnerabilities. Use when auditing an input handler for vulnerabilities, when handling user input, authentication, data storage, or external integrations, or when checking a… |
 | `security-threat-model` | openai/skills | no — CLI-managed, silently reverted | Repository-grounded threat modeling that enumerates trust boundaries, assets, attacker capabilities, abuse paths, and mitigations, and writes a concise Markdown threat model. Use proactively while… |
 | `shadcn` | shadcn/ui | no — CLI-managed, silently reverted | Manages shadcn components and projects — adding, searching, fixing, debugging, styling, and composing UI, including chat interfaces. Provides project context, component docs, and usage examples.… |
+| `supabase-postgres-best-practices` | supabase/agent-skills | no — CLI-managed, silently reverted | Postgres best practices for Postgres running anywhere: schema and column types, migrations, RLS, indexes, EXPLAIN/query tuning, pooling, pgvector, pg_cron/pgmq, pg_restore. Load BEFORE writing or changing anything in a Postgres database.… |
 | `systematic-debugging` | obra/superpowers | no — CLI-managed, silently reverted | Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes |
 | `thinking-pre-mortem` | tjboudreaux/cc-thinking-skills | no — CLI-managed, silently reverted | Before committing to a plan or launch, assume it already failed and reason backward through concrete causes — convert failure paths into mitigations, gates, and stop checks. |
 | `vercel-react-best-practices` | vercel-labs/agent-skills | no — CLI-managed, silently reverted | React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance… |
@@ -87,7 +88,7 @@ the same turn. It is hand-maintained — if it disagrees with disk, disk wins.
 | `council-mode` | package (reinstalled on update) | no — package-managed | Run a bounded supervisor-mediated advisor council. Use when the user asks for council mode, asks to convene advisors, debate a decision, cross-examine recommendations, or run /council. |
 | `pi-subagents` | package (reinstalled on update) | no — package-managed | \| Technical guidance for operator-requested delegation to builtin or custom subagents: bounded handoffs, parallel review, scripted workflows, async work, forked context, isolation, and coordinated… |
 
-**Total: 58 skills advertised.** None is hidden from model selection:
+**Total: 59 skills advertised.** None is hidden from model selection:
 57 omit `disable-model-invocation` (absent = invocable) and `thinking-pre-mortem`
 sets it to `false`. The security-testing skills are gated by rule, not by
 frontmatter — see Rule 2 in `AGENTS.md`.
@@ -143,6 +144,12 @@ description says *what it does*; this table states *when it is mandatory*.
 | `changelog-generator` | Building user-facing release notes from commits. |
 | `find-skills` | The user wants a capability that may exist as an installable skill. Note: `npx skills add` installs third-party code → Rule 1 class 2. |
 
+### Data & persistence
+
+| Skill | Load it when |
+|---|---|
+| `supabase-postgres-best-practices` | Writing or changing anything in Postgres — DDL, migrations, column types, RLS, indexes, slow queries, pooling, dumps. Not just performance: schema and SQL authoring too. |
+
 ### Frontend, design, language patterns
 
 | Skill | Load it when |
@@ -196,6 +203,7 @@ Declared in `settings.json` → `packages`. Installed under `git/` and `npm/`.
 | `npm:@gotgenes/pi-permission-system` | (describe me) |
 | `npm:pi-background-tasks@latest` | (describe me) |
 | `npm:@narumitw/pi-plan-mode` | (describe me) |
+| `npm:openwiki` | CLI + pi tools that generate and maintain agent docs for a codebase (`openwiki --init` / `--update`); query-time `openwiki_search` / `openwiki_read` are local and model-free, generation uses a configured provider |
 
 
 ## 4. MCP servers
