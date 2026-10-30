@@ -12,6 +12,9 @@
 !.config/yazi
 !.agents
 !.config/opencode
+!.config/herdr
+.config/herdr/*
+!.config/herdr/config.toml
 !.cursor
 .cursor/*
 !.cursor/skills

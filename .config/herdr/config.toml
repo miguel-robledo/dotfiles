@@ -1,0 +1,17 @@
+onboarding = false
+
+[theme]
+name = "nord"
+
+[ui]
+tab_bar_position = "bottom"
+
+# Agent rows name the pane's real project via pi's `π - <dir>` title,
+# because the built-in tokens have no cwd. Tabs stay numbered 1..9.
+# terminal_title_stripped renders in the secondary/overlay0 grey by default,
+# so style it like the old `workspace` token (bold, nord #ECEFF4).
+[ui.sidebar.agents]
+rows = [
+  ["state_icon", { token = "terminal_title_stripped", fg = "#ECEFF4", bold = true, dim = false }, "tab"],
+  ["agent"],
+]
