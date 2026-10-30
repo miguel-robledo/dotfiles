@@ -9,16 +9,17 @@
  * 5. Record suggested-vs-used, and report coverage of the installed inventory.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerClef } from "./clef.ts";
 import { projectBrief, type ProjectBrief } from "./context.ts";
 import { planWorkstreams, type PlanSettings } from "./planner.ts";
 import { buildCapabilities, buildIndex, renderCapabilitySection, type Capability, type CapabilityIndex } from "./indexer.ts";
 import { CAPABILITY_PARAMS, inventoryLines, renderInventory } from "./inventory.ts";
-import { familyOf, isPlanModeActive, lastPlanFromBranch, newState, nextCorrection, parseDeclaredRows, planHash, type ConformanceState } from "./conformance.ts";
+import { familyOf, isPlanModeActive, lastPlanFromBranch, markMentioned, newState, parseDeclaredRows, pendingCorrections, planHash, renderCorrections, renderStatus, type ConformanceState } from "./conformance.ts";
 import { extractSteps, findings, MAX_REVIEW_ROUNDS, parseRejections, renderFindings, type Finding, type StepJudgement } from "./plan-review.ts";
 import { askTriggers, coverageFindings, mandatoryFindings, TRIGGERS, TRIGGER_THRESHOLD } from "./triggers.ts";
+import { cbmIndexPath, configuredBrowserPath, probeCapability, whichOnPath } from "./availability.ts";
 import { decide, DEFAULT_JUDGE, type JudgeOutcome } from "./judge.ts";
 import { matchedBy, renderHint, toSuggestion, type RouteMap, type Suggestion } from "./router.ts";
 import { agentDir, EXTENSION_DIR, formatCoverage, mineCoverage, writeJson, type Inventory } from "./report.ts";
@@ -96,7 +97,26 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	let reviewRounds = 0;
 	/** Active-mode skills, for the inventory/telemetry only; declared skills are never enforced. */
 	let activeModeSkills = new Set<string>();
+	/** Servers that returned a real error this session, with that error: the only trustworthy signal. */
+	const serverFailures = new Map<string, string>();
+	/** Capabilities reported to the user as unusable here, for `/capabilities status`. */
+	let blockedRows = new Map<string, string>();
 	const cache = new Map<string, RunState>();
+
+	/** Footer status: set on every turn, wrapped so a UI without a footer cannot break the turn. */
+	const updateStatus = (ctx: { hasUI?: boolean; ui?: { setStatus?: (key: string, text: string | undefined) => void } }) => {
+		try {
+			if (!ctx?.hasUI || !ctx.ui?.setStatus) return;
+			const unused = conformance.rows.filter((row) => !["read", "bash", "edit", "write", "grep", "find", "ls", "none", "todo", "bg_run", "skill"].includes(row.family));
+			const label =
+				conformance.rows.length === 0
+					? "router: no plan"
+					: `router: ${unused.length} unused, ${blockedRows.size} blocked, ${conformance.spoken} mentioned`;
+			ctx.ui.setStatus("capability-router", label);
+		} catch {
+			// Status is cosmetic.
+		}
+	};
 
 	const rebuild = () => {
 		index = buildIndex(agentDir(), { mcpServers: mcpNames(pi), packages: packageNames(pi) });
@@ -108,16 +128,21 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		sessionId = ctx.sessionManager.getSessionId();
 		run = null;
 		conformance = newState();
+		blockedRows = new Map();
 		turnFamilies = [];
 		pendingPlan = null;
 		reviewedPlans.clear();
 		reviewRounds = 0;
 		// A reload is required after editing the router; the plan must survive it.
 		const restoredPlan = lastPlanFromBranch(ctx.sessionManager.getBranch() as any);
-		if (restoredPlan) {
-			const restored = parseDeclaredRows(restoredPlan);
-			if (restored.length > 0) conformance.rows = restored;
-		}
+		const restoredRows = restoredPlan ? parseDeclaredRows(restoredPlan) : [];
+		if (restoredRows.length > 0) conformance.rows = restoredRows;
+		updateStatus(ctx);
+		pi.appendEntry("capability-router/restored", {
+			planFound: Boolean(restoredPlan),
+			rows: restoredRows.length,
+			firstRow: restoredRows[0]?.sig ?? null,
+		});
 		rebuild();
 		// Deferred/MCP tools are only discoverable through tool_search; never drop a tool the user chose.
 		const active = pi.getActiveTools();
@@ -241,6 +266,18 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		}
 	});
 
+	pi.on("tool_result", (event) => {
+		// Remember genuine MCP failures (missing index, missing language server) so the human is told the
+		// real reason instead of a guess.
+		const server =
+			event.toolName === "mcp" ? String((event.input as { server?: unknown })?.server ?? "") :
+			event.toolName.startsWith("mcp__") ? event.toolName.slice(5).replace(/_/g, "-") : "";
+		if (server && event.isError) {
+			const text = (event.content ?? []).find((block) => block.type === "text") as { text?: string } | undefined;
+			serverFailures.set(server, String(text?.text ?? "error").slice(0, 200));
+		}
+	});
+
 	pi.on("tool_result", async (event, ctx) => {
 		if (event.toolName !== "plan_mode_complete") return;
 		const rows = pendingPlan;
@@ -249,7 +286,8 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 
 		conformance.rows = rows;
 		conformance.observed = new Set();
-		conformance.reminded = new Set();
+		conformance.mentionedAt = new Map();
+		conformance.mentions = new Map();
 		conformance.spoken = 0;
 		conformance.lastSpoke = 0;
 		conformance.planKey = `${conformance.rows.length}:${rows[0].sig}`;
@@ -308,20 +346,62 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	});
 
 	// Conformance speaks at turn boundaries, only on a violation, within a hard noise budget.
-	pi.on("turn_end", () => {
+	pi.on("turn_end", (_event, ctx) => {
+		conformance.turn += 1;
 		const families = turnFamilies;
 		turnFamilies = [];
+		const pending = pendingCorrections({ state: conformance, turnFamilies: families, satisfiedSkills: activeModeSkills });
+		// Trace first, unconditionally: "the check never ran" and "the check ran and had nothing to say"
+		// must be distinguishable from the transcript.
+		pi.appendEntry("capability-router/evaluated", {
+			rows: conformance.rows.length,
+			pending: pending.map((row) => row.sig),
+			work: families.length,
+		});
+		updateStatus(ctx);
 		if (conformance.rows.length === 0) return;
-		const correction = nextCorrection({ state: conformance, turnFamilies: families, now: Date.now(), satisfiedSkills: activeModeSkills });
-		if (!correction) return;
-		conformance.reminded.add(correction.row.step);
+		if (pending.length === 0) return;
+
+		// Split the batch: capabilities that cannot run here are the human's problem, not the agent's.
+		const usable: typeof pending = [];
+		for (const row of pending) {
+			if (row.family === "mcp") {
+				const server = row.sig.split(":")[1]?.split("/")[0] ?? "";
+				const observed = serverFailures.get(server);
+				if (observed) {
+					markMentioned(conformance, [row]);
+					blockedRows.set(row.sig, observed);
+					const note = `capability-router: \`${row.sig}\` is declared in the plan but \`${server}\` failed here: ${observed}`;
+					if (ctx.hasUI) ctx.ui.notify(note, "warning");
+					pi.appendEntry("capability-router/blocked", { sig: row.sig, reason: observed });
+					continue;
+				}
+				const precondition = probeCapability(row.sig, {
+					language: briefs.get(ctx.cwd)?.language,
+					which: whichOnPath,
+					exists: existsSync,
+					browserPath: configuredBrowserPath(),
+					cbmDbPath: cbmIndexPath(ctx.cwd),
+				});
+				if (!precondition.usable) {
+					markMentioned(conformance, [row]);
+					blockedRows.set(row.sig, precondition.reason ?? "unusable");
+					const note = `capability-router: \`${row.sig}\` is declared in the plan but cannot run here — ${precondition.reason}. To fix: ${precondition.fix}.`;
+					if (ctx.hasUI) ctx.ui.notify(note, "warning");
+					pi.appendEntry("capability-router/blocked", { sig: row.sig, reason: precondition.reason, fix: precondition.fix });
+					continue;
+				}
+			}
+			usable.push(row);
+		}
+		if (usable.length === 0) return;
+		markMentioned(conformance, usable);
 		conformance.spoken += 1;
+		updateStatus(ctx);
 		conformance.lastSpoke = Date.now();
 		try {
 			pi.sendMessage(
-				{ customType: "capability-router/conformance", content: correction.text, display: true },
-				// Measured: "nextTurn" is only consumed when a *new run* starts, so a mid-run correction
-				// vanished. "steer" injects before the next model call inside the running loop.
+				{ customType: "capability-router/conformance", content: renderCorrections(usable, families), display: true },
 				{ deliverAs: "steer" },
 			);
 		} catch {
@@ -330,9 +410,10 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_settled", () => {
-		// A plan belongs to the run that submitted it: drop the rows when that run ends, so an
-		// abandoned plan cannot nag the next one (measured: stale rows fired on unrelated turns).
-		conformance = newState();
+		// Rows are NOT cleared here. Measured on a real task: the plan was submitted in one run and
+		// executed in later runs, so clearing at settle deleted the rows before the work began and the
+		// check never fired. Rows persist until a new plan replaces them; the per-row reminder, the
+		// 3-per-session cap and the 2-minute silencer keep an abandoned plan from nagging.
 		if (!run) return;
 		const row = {
 			ts: new Date().toISOString(),
@@ -350,7 +431,7 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("capabilities", {
-		description: "Full capability inventory (same data as the `capabilities` tool), coverage report, and this session's hints",
+		description: "Capability inventory, router status, coverage report. Subcommands: status, report [--days N], --names/--kind/--query",
 		handler: async (args, ctx) => {
 			const argv = (args ?? "").trim().split(/\s+/).filter(Boolean);
 			const days = flagValue(argv, "--days", 14);
@@ -372,6 +453,18 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 						].join("\n");
 
 			try {
+				if (argv[0] === "status") {
+					if (!index) rebuild();
+					const text = renderStatus({
+						state: conformance,
+						judge: `${judge.provider}/${judge.model}`,
+						capabilities: capabilities.length,
+						blocked: blockedRows,
+						reviewRounds,
+					});
+					ctx.ui.notify(`${text}\n\n${session}`, "info");
+					return;
+				}
 				if (argv[0] === "report" || argv[0] === "coverage") {
 					const installed: Inventory = {
 						agents: (index?.agents ?? []).map((agent) => agent.name),

@@ -11,9 +11,10 @@ import { buildCapabilities, buildIndex, renderCapabilitySection } from "./indexe
 import { buildQuestion, MAX_HINTS, MIN_PROBABILITY, MIN_TOP, NONE_FLOOR, RELATIVE_FLOOR, select } from "./judge.ts";
 import { HINT_MAX_CHARS, matchedBy, renderHint, toSuggestion, type RouteMap } from "./router.ts";
 import { detectManifest, formatBrief } from "./context.ts";
-import { familyOf, isPlanModeActive, lastPlanFromBranch, MAX_LINES, newState, nextCorrection, parseDeclaredRows, planHash, satisfiedBy, SILENCE_MS, workFamilies } from "./conformance.ts";
+import { familyOf, isPlanModeActive, isDue, lastPlanFromBranch, markMentioned, MAX_MENTIONS_PER_ROW, newState, parseDeclaredRows, pendingCorrections, planHash, REASSERT_AFTER_TURNS, renderCorrections, renderStatus, satisfiedBy, workFamilies } from "./conformance.ts";
 import { extractSteps, findings, MAX_REVIEW_ROUNDS, pairRows, parseRejections, renderFindings, signatureExists } from "./plan-review.ts";
 import { buildTriggerQuestions, coverageFindings, coversSignature, MANDATORY, mandatoryFindings, TRIGGERS, TRIGGER_THRESHOLD } from "./triggers.ts";
+import { cbmIndexPath, probeCapability } from "./availability.ts";
 import { isNoneAnswer, parseWorkstreams } from "./planner.ts";
 
 const DIR = import.meta.dir;
@@ -257,18 +258,9 @@ describe("conformance", () => {
 		expect(familyOf("mcp__serena", {})).toBe("mcp:serena");
 		expect(familyOf("mcp__codebase_memory_mcp", {})).toBe("mcp:codebase-memory-mcp");
 		expect(familyOf("mcp", { server: "playwright" })).toBe("mcp:playwright");
-		expect(familyOf("subagent", { agent: "reviewer" })).toBe("subagent");
+		expect(familyOf("subagent", { agent: "reviewer" })).toBe("subagent:reviewer");
 		expect(familyOf("read", { path: "/home/m/.pi/agent/skills/ponytail/SKILL.md" })).toBe("skill:ponytail");
 		expect(familyOf("bash", { command: "ls" })).toBe("bash");
-	});
-
-	test("a declared mcp tool is not satisfied by another tool on the same server", () => {
-		const row = { step: "map callers", sig: "mcp:codebase-memory-mcp/trace_path", family: "mcp" };
-		expect(familyOf("mcp", { server: "codebase-memory-mcp", tool: "index_status" })).toBe("mcp:codebase-memory-mcp/index_status");
-		expect(satisfiedBy(row, ["mcp:codebase-memory-mcp/index_status"])).toBe(false);
-		expect(satisfiedBy(row, ["mcp:codebase-memory-mcp/trace_path"])).toBe(true);
-		// a row without a tool still accepts any tool of that server
-		expect(satisfiedBy({ ...row, sig: "mcp:codebase-memory-mcp" }, ["mcp:codebase-memory-mcp/index_status"])).toBe(true);
 	});
 
 	test("a declared mcp tool is satisfied by that tool on that server only", () => {
@@ -277,44 +269,54 @@ describe("conformance", () => {
 		expect(satisfiedBy(row, ["mcp:serena"])).toBe(false);
 		expect(satisfiedBy(row, ["mcp:serena/safe_delete_symbol"])).toBe(false);
 		expect(satisfiedBy(row, ["mcp:playwright/rename_symbol"])).toBe(false);
-		expect(satisfiedBy(parseDeclaredRows(plan)[1], ["subagent"])).toBe(true);
+		expect(satisfiedBy(parseDeclaredRows(plan)[1], ["subagent:reviewer"])).toBe(true);
+		expect(satisfiedBy(parseDeclaredRows(plan)[1], ["subagent:engineering-code-reviewer"])).toBe(false);
 	});
 
-	test("speaks when primitives stand in for a declared capability", () => {
+	test("a turn that mixed another capability with primitives still reports the unused rows", () => {
 		const state = newState();
 		state.rows = parseDeclaredRows(plan);
-		const correction = nextCorrection({ state, turnFamilies: ["bash", "read"], now: 1_000_000 });
-		expect(correction?.row.sig).toBe("mcp:serena/rename_symbol");
-		expect(correction?.text).toContain("still unused");
-		expect(correction?.text).toContain("bash, read");
+		const pending = pendingCorrections({ state, turnFamilies: ["mcp:playwright", "bash"] });
+		expect(pending.map((row) => row.sig)).toEqual(["mcp:serena/rename_symbol", "subagent:reviewer"]);
+	});
+
+	test("lists every bypassed capability at once, not one per turn", () => {
+		const state = newState();
+		state.rows = parseDeclaredRows(plan);
+		const pending = pendingCorrections({ state, turnFamilies: ["bash", "read"] });
+		expect(pending.map((row) => row.sig)).toEqual(["mcp:serena/rename_symbol", "subagent:reviewer"]);
+		const text = renderCorrections(pending, ["bash", "read"]);
+		expect(text).toContain("2 declared capabilities are unused");
+		expect(text).toContain("mcp:serena/rename_symbol");
+		expect(text).toContain("subagent:reviewer");
+	});
+
+	test("no session cap: ten unused rows are all reported", () => {
+		const state = newState();
+		state.rows = Array.from({ length: 10 }, (_, i) => ({ step: `s${i}`, sig: `mcp:serena/tool${i}`, family: "mcp" }));
+		const pending = pendingCorrections({ state, turnFamilies: ["bash"] });
+		expect(pending).toHaveLength(10);
+		expect(renderCorrections(pending, ["bash"]).split("\n")[0]).toContain("10 declared capabilities");
 	});
 
 	test("stays silent with no plan, no work, or satisfied rows", () => {
 		const empty = newState();
-		expect(nextCorrection({ state: empty, turnFamilies: ["bash"], now: 1 })).toBeNull();
+		expect(pendingCorrections({ state: empty, turnFamilies: ["bash"] })).toEqual([]);
 
 		const state = newState();
 		state.rows = parseDeclaredRows(plan);
-		expect(nextCorrection({ state, turnFamilies: [], now: 1 })).toBeNull();
+		expect(pendingCorrections({ state, turnFamilies: [] })).toEqual([]);
 
-		state.observed = new Set(["mcp:serena", "subagent", "read"]);
-		expect(nextCorrection({ state, turnFamilies: ["bash"], now: 1 })).toBeNull();
+		state.observed = new Set(["mcp:serena/rename_symbol", "subagent:reviewer", "read"]);
+		expect(pendingCorrections({ state, turnFamilies: ["bash"] })).toEqual([]);
 	});
 
-	test("noise budget: one line per row, three per session, two minutes apart", () => {
+	test("each row is asked once", () => {
 		const state = newState();
 		state.rows = parseDeclaredRows(plan);
-		const first = nextCorrection({ state, turnFamilies: ["bash"], now: 1_000_000 });
-		expect(first).not.toBeNull();
-		state.reminded.add(first!.row.step);
-		state.spoken += 1;
-		state.lastSpoke = 1_000_000;
-
-		expect(nextCorrection({ state, turnFamilies: ["bash"], now: 1_000_000 + SILENCE_MS - 1 })).toBeNull();
-		expect(nextCorrection({ state, turnFamilies: ["bash"], now: 1_000_000 + SILENCE_MS })).not.toBeNull();
-
-		state.spoken = MAX_LINES;
-		expect(nextCorrection({ state, turnFamilies: ["bash"], now: 9_000_000 })).toBeNull();
+		const first = pendingCorrections({ state, turnFamilies: ["bash"] });
+		markMentioned(state, first);
+		expect(pendingCorrections({ state, turnFamilies: ["bash"] })).toEqual([]);
 	});
 });
 
@@ -392,16 +394,17 @@ describe("noise defects found by the dry run", () => {
 		const state = newState();
 		state.rows = rows;
 		expect(workFamilies(["plan_mode_complete", "todo", "bg_run"])).toEqual([]);
-		expect(nextCorrection({ state, turnFamilies: ["plan_mode_complete"], now: 1_000_000 })).toBeNull();
+		expect(pendingCorrections({ state, turnFamilies: ["plan_mode_complete"] })).toEqual([]);
 	});
 
 	test("A1: meta tools are stripped from the reported turn", () => {
 		const state = newState();
 		state.rows = rows;
-		const correction = nextCorrection({ state, turnFamilies: ["plan_mode_complete", "bash"], now: 1_000_000 });
-		expect(correction).not.toBeNull();
-		expect(correction?.text).toContain("bash");
-		expect(correction?.text).not.toContain("plan_mode_complete");
+		const pending = pendingCorrections({ state, turnFamilies: ["plan_mode_complete", "bash"] });
+		expect(pending).toHaveLength(1);
+		const text = renderCorrections(pending, ["plan_mode_complete", "bash"]);
+		expect(text).toContain("bash");
+		expect(text).not.toContain("plan_mode_complete");
 	});
 
 	test("A2: the same plan hashes the same, whitespace differences included", () => {
@@ -412,12 +415,11 @@ describe("noise defects found by the dry run", () => {
 	test("A3: a declared skill is never enforced, because a skill is a process, not a call", () => {
 		const state = newState();
 		state.rows = [rows[0]]; // only the skill:ponytail row
-		expect(nextCorrection({ state, turnFamilies: ["bash"], now: 9_000_000 })).toBeNull();
-		expect(nextCorrection({ state, turnFamilies: ["bash"], now: 9_000_000, satisfiedSkills: new Set(["ponytail"]) })).toBeNull();
+		expect(pendingCorrections({ state, turnFamilies: ["bash"] })).toEqual([]);
 		// a capability row next to it is still enforced
 		const withMcp = newState();
 		withMcp.rows = rows;
-		expect(nextCorrection({ state: withMcp, turnFamilies: ["bash"], now: 9_000_000 })?.row.sig).toBe("mcp:serena/rename_symbol");
+		expect(pendingCorrections({ state: withMcp, turnFamilies: ["bash"] }).map((row) => row.sig)).toEqual(["mcp:serena/rename_symbol"]);
 	});
 
 	test("A4: the last submitted plan is recovered from the transcript", () => {
@@ -540,5 +542,88 @@ describe("mandatory trio", () => {
 		const text = renderFindings(mandatoryFindings([], []));
 		expect(text).toContain("mandatory capability not addressed");
 		expect(text).toContain("reject it on the record");
+	});
+});
+
+describe("configuration preconditions", () => {
+	const none = { which: () => false, exists: () => false };
+	const all = { which: () => true, exists: () => true };
+
+	test("serena is never blocked on a PATH guess (it spawns its own servers)", () => {
+		expect(probeCapability("mcp:serena/replace_symbol_body", { ...none, language: "php" }).usable).toBe(true);
+		expect(probeCapability("mcp:serena/replace_symbol_body", { ...all, language: "php" }).usable).toBe(true);
+	});
+
+	test("an unknown language is not guessed at", () => {
+		expect(probeCapability("mcp:serena/x", { ...none }).usable).toBe(true);
+		expect(probeCapability("mcp:serena/x", { ...none, language: "cobol" }).usable).toBe(true);
+	});
+
+	test("playwright without its browser binary is a configuration problem", () => {
+		const result = probeCapability("mcp:playwright", { ...none, browserPath: "/nonexistent/chrome" });
+		expect(result.usable).toBe(false);
+		expect(result.fix).toContain("playwright install");
+		expect(probeCapability("mcp:playwright", { ...all, browserPath: "/x/chrome" }).usable).toBe(true);
+	});
+
+	test("codebase-memory-mcp is blocked when the project has no index file", () => {
+		const db = "/home/u/.cache/codebase-memory-mcp/home-u-proj.db";
+		const blocked = probeCapability("mcp:codebase-memory-mcp/trace_path", { ...none, cbmDbPath: db });
+		expect(blocked.usable).toBe(false);
+		expect(blocked.reason).toContain("not indexed");
+		expect(probeCapability("mcp:codebase-memory-mcp/trace_path", { ...all, cbmDbPath: db }).usable).toBe(true);
+	});
+
+	test("the index path follows the project slug", () => {
+		expect(cbmIndexPath("/home/miguel/Documents/coloso-v2", "/cache")).toBe("/cache/home-miguel-Documents-coloso-v2.db");
+		expect(cbmIndexPath("/home/miguel/Documents/ba-lxp-safety45", "/cache")).toBe("/cache/home-miguel-Documents-ba-lxp-safety45.db");
+	});
+});
+
+describe("re-assertion and status", () => {
+	const rows = parseDeclaredRows("## Capabilities\n| Covers | Capability | Why |\n| --- | --- | --- |\n| a | `mcp:serena/rename_symbol` | x |");
+
+	test("a mentioned row comes back after the gap, up to the cap", () => {
+		const state = newState();
+		state.rows = rows;
+		const row = rows[0];
+		markMentioned(state, [row]);
+		expect(isDue(state, row)).toBe(false);
+		state.turn = REASSERT_AFTER_TURNS - 1;
+		expect(isDue(state, row)).toBe(false);
+		state.turn = REASSERT_AFTER_TURNS;
+		expect(isDue(state, row)).toBe(true);
+		for (let i = 0; i < MAX_MENTIONS_PER_ROW; i++) markMentioned(state, [row]);
+		state.turn = 999;
+		expect(isDue(state, row)).toBe(false);
+	});
+
+	test("mentions reset when the capability is actually used", () => {
+		const state = newState();
+		state.rows = rows;
+		markMentioned(state, [rows[0]]);
+		state.observed = new Set(["mcp:serena/rename_symbol"]);
+		expect(pendingCorrections({ state, turnFamilies: ["bash"] })).toEqual([]);
+	});
+
+	test("status says it is alive, what is unused, and what is blocked", () => {
+		const state = newState();
+		state.rows = rows;
+		state.turn = 7;
+		const text = renderStatus({ state, judge: "ollama-clef/clef:cloud", capabilities: 145, blocked: new Map([["mcp:codebase-memory-mcp/trace_path", "not indexed"]]), reviewRounds: 1 });
+		expect(text).toContain("loaded and evaluating every turn");
+		expect(text).toContain("145 capabilities");
+		expect(text).toContain("turn: 7");
+		expect(text).toContain("mcp:serena/rename_symbol — mentioned 0/3");
+		expect(text).toContain("not indexed");
+	});
+
+	test("status distinguishes 'no plan' from 'nothing left to say'", () => {
+		expect(renderStatus({ state: newState() })).toContain("no plan rows");
+		const satisfied = newState();
+		satisfied.rows = rows;
+		satisfied.observed = new Set(["mcp:serena/rename_symbol"]);
+		const text = renderStatus({ state: satisfied });
+		expect(text).toContain("unused: 0 (none due right now)");
 	});
 });

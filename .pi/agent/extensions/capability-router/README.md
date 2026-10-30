@@ -179,10 +179,14 @@ submission succeeds, so a rejected plan leaves nothing behind. At each `turn_end
   produces one corrective line: `Capability check: step "rename helper" declared mcp:serena/rename_symbol, still unused. This turn used: read, bash. Use the declared capability or say in one line why the primitive is enough.`
 - delivery uses `deliverAs: "steer"`, because `nextTurn` is only consumed when a *new run* starts
   (measured: the correction vanished). Steer injects before the next model call in the running loop.
-- budget: each row at most once, at most **3 lines per session**, never twice within 2 minutes. A
-  timer is a silencer here, never a trigger.
+- budget: no session cap. One message per turn lists **every** capability still unused (max 8 lines,
+  then "… and N more"), and each row is mentioned exactly once. A configuration-blocked row is reported
+  to the user instead and never counted as a correction.
 - meta tools are not work: a turn that only submitted a plan, asked a question or read this inventory
   never triggers a correction (measured defect: "this turn used: plan_mode_complete").
+- a declared `mcp:` capability whose precondition fails locally (no language server for serena, missing
+  browser for playwright, project not indexed for codebase-memory-mcp) is reported to the **user** with a
+  fix, and is not sent to the model at all.
 - declared skills that are already the session's active mode (`ponytail`) are skipped, not reported.
 - plan-review runs **once per distinct plan text** (hash), so re-submitting an unchanged plan is silent.
 - on `session_start` the declared rows are rebuilt from the transcript, so a `/reload` (needed after

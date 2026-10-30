@@ -8,8 +8,8 @@
  *   - checked at `turn_end`, because a turn is the unit that carries tool calls and results
  *   - speaks only on a violation: a declared non-primitive capability is still unused while the turn
  *     used primitives for the same work
- *   - each declared row is reminded at most once, at most 3 lines per session, and never twice within
- *     two minutes. A wall-clock timer is a *silencer* here, never a trigger.
+ *   - a still-unused row is re-asserted after REASSERT_AFTER_TURNS turns, at most MAX_MENTIONS_PER_ROW
+ *     times, and stops the moment the capability is actually used or the plan is replaced.
  *
  * No model calls: everything is string comparison over the plan and the tool names.
  */
@@ -102,7 +102,9 @@ export function familyOf(toolName: string, input: Record<string, unknown>): stri
 		if (typeof input.server !== "string") return "mcp";
 		return typeof input.tool === "string" ? `mcp:${input.server}/${input.tool}` : `mcp:${input.server}`;
 	}
-	if (toolName === "subagent") return "subagent";
+	// Agent rows are matched by agent name: one `reviewer` run must not satisfy a declared
+	// `subagent:security-appsec-engineer` (measured: it did, and the appsec row never fired).
+	if (toolName === "subagent") return typeof input.agent === "string" ? `subagent:${input.agent}` : "subagent";
 	if (toolName === "read" && typeof input.path === "string") {
 		const skill = /\/skills\/([^/]+)\//.exec(input.path);
 		if (skill) return `skill:${skill[1]}`;
@@ -124,7 +126,10 @@ export function satisfiedBy(declared: DeclaredRow, observed: string[]): boolean 
 			if (tool) return seen === `mcp:${server}/${tool}`;
 			return seen === `mcp:${server}` || seen.startsWith(`mcp:${server}/`);
 		}
-		if (head === "subagent") return seen === "subagent";
+		if (head === "subagent") {
+			if (!rest) return seen === "subagent" || seen.startsWith("subagent:");
+			return seen === `subagent:${rest}`;
+		}
 		return seen === sig || seen === head;
 	});
 }
@@ -132,56 +137,81 @@ export function satisfiedBy(declared: DeclaredRow, observed: string[]): boolean 
 export interface ConformanceState {
 	rows: DeclaredRow[];
 	observed: Set<string>;
-	reminded: Set<string>;
+	/** Turn index when each row was last mentioned, and how often. */
+	mentionedAt: Map<string, number>;
+	mentions: Map<string, number>;
+	/** Turn counter, incremented once per turn_end. */
+	turn: number;
 	lastSpoke: number;
 	spoken: number;
 	planKey: string;
 }
 
-export const MAX_LINES = 3;
-export const SILENCE_MS = 120_000;
+/** A still-unused row is re-asserted after this many turns, at most this many times. */
+export const REASSERT_AFTER_TURNS = 5;
+export const MAX_MENTIONS_PER_ROW = 3;
 
 export function newState(): ConformanceState {
-	return { rows: [], observed: new Set(), reminded: new Set(), lastSpoke: 0, spoken: 0, planKey: "" };
+	return { rows: [], observed: new Set(), mentionedAt: new Map(), mentions: new Map(), turn: 0, lastSpoke: 0, spoken: 0, planKey: "" };
 }
 
-export interface CorrectionInput {
+/** Is this row due to be mentioned again? Never mentioned → yes; otherwise after a gap, up to a cap. */
+export function isDue(state: ConformanceState, row: DeclaredRow): boolean {
+	const mentions = state.mentions.get(row.step) ?? 0;
+	if (mentions === 0) return true;
+	if (mentions >= MAX_MENTIONS_PER_ROW) return false;
+	return state.turn - (state.mentionedAt.get(row.step) ?? 0) >= REASSERT_AFTER_TURNS;
+}
+
+/** Mark every given row as mentioned on the current turn. */
+export function markMentioned(state: ConformanceState, rows: DeclaredRow[]): void {
+	for (const row of rows) {
+		state.mentions.set(row.step, (state.mentions.get(row.step) ?? 0) + 1);
+		state.mentionedAt.set(row.step, state.turn);
+	}
+}
+
+export interface PendingInput {
 	state: ConformanceState;
 	turnFamilies: string[];
-	now: number;
-	/** Skills already active as session mode, kept for callers that know them; declared skills are advisory regardless. */
+	/** Skills already active as session mode; declared skills are advisory regardless. */
 	satisfiedSkills?: Set<string>;
 }
 
 /**
- * The single correction to emit this turn, or null. Pure, so the budget and the ordering are testable.
+ * Every declared capability this turn's work has bypassed. No session cap and no timer: one batch per
+ * turn, each row mentioned once, and the caller filters out rows that cannot run for configuration
+ * reasons. Measured: a three-message cap spent itself on three unusable mcp rows, and the appsec row
+ * was never asked about.
  */
-export function nextCorrection({ state, turnFamilies, now, satisfiedSkills }: CorrectionInput): { row: DeclaredRow; text: string } | null {
-	if (state.spoken >= MAX_LINES) return null;
-	if (now - state.lastSpoke < SILENCE_MS) return null;
-	// A correction only makes sense when this turn actually did work, not when it submitted a plan.
+export function pendingCorrections({ state, turnFamilies, satisfiedSkills }: PendingInput): DeclaredRow[] {
 	const families = workFamilies(turnFamilies);
-	if (families.length === 0) return null;
-	const usedOnlyPrimitives = families.every((family) => PRIMITIVES.has(family.split(":")[0]));
-	const pending = state.rows.filter(
+	if (families.length === 0) return [];
+	// Any work turn counts. Requiring "primitives only" silenced the check in real sessions whose turns
+	// mixed playwright with bash while the declared serena row was still unused. Each row is named once,
+	// so the total volume stays bounded by the plan's rows.
+	return state.rows.filter(
 		(row) =>
 			!PRIMITIVES.has(row.family) &&
 			// A declared skill is a process, not an act: reading SKILL.md is not evidence of applying it,
 			// and a skill that is already the session's mode is never a tool call. Never enforced.
 			row.family !== "skill" &&
-			!state.reminded.has(row.step) &&
-			!satisfiedBy(row, [...state.observed]),
+			!satisfiedBy(row, [...state.observed]) &&
+			isDue(state, row),
 	);
-	if (pending.length === 0) return null;
-	const row = pending[0];
-	// Stay silent while the run is doing exactly what the plan asked; speak when primitives stand in
-	// for a declared capability, or when the declared capability simply never appears.
-	if (!usedOnlyPrimitives && state.observed.size > 0) return null;
-	const used = [...new Set(families)].slice(0, 4).join(", ") || "nothing";
-	return {
-		row,
-		text: `Capability check: step "${row.step}" declared \`${row.sig}\`, still unused. This turn used: ${used}. Use the declared capability or say in one line why the primitive is enough.`,
-	};
+}
+
+/** One message listing every bypassed capability, so nothing is asked twice and nothing is left out. */
+export function renderCorrections(rows: DeclaredRow[], turnFamilies: string[], maxLines = 8): string {
+	const shown = rows.slice(0, maxLines);
+	const used = [...new Set(workFamilies(turnFamilies))].slice(0, 5).join(", ") || "nothing";
+	const lines = [
+		`Capability check — ${rows.length} declared capabilit${rows.length === 1 ? "y is" : "ies are"} unused:`,
+		...shown.map((row) => `- step "${row.step}" declared \`${row.sig}\``),
+	];
+	if (rows.length > shown.length) lines.push(`- … and ${rows.length - shown.length} more`);
+	lines.push(`This turn used: ${used}. Use each declared capability, or say in one line why the primitive is enough.`);
+	return lines.join("\n");
 }
 
 /**
@@ -197,4 +227,39 @@ export function isPlanModeActive(entries: Array<{ type?: string; customType?: un
 		return data?.enabled === true;
 	}
 	return false;
+}
+
+export interface StatusInput {
+	state: ConformanceState;
+	judge?: string;
+	capabilities?: number;
+	blocked?: Map<string, string>;
+	reviewRounds?: number;
+}
+
+/**
+ * Human-readable router status. Answers the two questions that kept coming up: is it alive, and does
+ * it have anything left to say.
+ */
+export function renderStatus({ state, judge, capabilities, blocked, reviewRounds }: StatusInput): string {
+	const unused = state.rows.filter((row) => !PRIMITIVES.has(row.family) && row.family !== "skill" && !satisfiedBy(row, [...state.observed]));
+	const due = unused.filter((row) => isDue(state, row));
+	const lines = [
+		"capability-router — loaded and evaluating every turn",
+		judge ? `judge: ${judge}${capabilities ? ` over ${capabilities} capabilities` : ""}` : "judge: not registered",
+		`plan: ${state.rows.length} capability rows restored`,
+		`turn: ${state.turn} | mentions this session: ${state.spoken} | plan reviews: ${reviewRounds ?? 0}`,
+		`unused: ${unused.length}${due.length ? ` (${due.length} due to be mentioned)` : " (none due right now)"}`,
+	];
+	for (const row of unused) {
+		const mentions = state.mentions.get(row.step) ?? 0;
+		const wait = mentions ? Math.max(0, REASSERT_AFTER_TURNS - (state.turn - (state.mentionedAt.get(row.step) ?? 0))) : 0;
+		lines.push(`  - ${row.sig} — mentioned ${mentions}/${MAX_MENTIONS_PER_ROW}, ${wait === 0 ? "due now" : `${wait} turns until next`}`);
+	}
+	if (blocked && blocked.size > 0) {
+		lines.push("blocked by configuration (reported to you, not to the model):");
+		for (const [sig, reason] of blocked) lines.push(`  - ${sig}: ${reason.slice(0, 110)}`);
+	}
+	if (state.rows.length === 0) lines.push("no plan rows: nothing is being checked until a plan is submitted or restored at session start");
+	return lines.join("\n");
 }
