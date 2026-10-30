@@ -17,7 +17,8 @@
     "npm:@gotgenes/pi-permission-system",
     "npm:pi-background-tasks@latest",
     "npm:@narumitw/pi-plan-mode",
-    "npm:openwiki"
+    "npm:openwiki",
+    "npm:pi-btw"
   ],
   "subagents": {
     "defaultModel": "deepseek-v4.1-flash:1017-cloud",
