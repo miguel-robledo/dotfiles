@@ -1,0 +1,42 @@
+{
+	"judge": {
+		"enabled": true,
+		"provider": "ollama-clef",
+		"model": "clef:cloud",
+		"baseUrl": "http://localhost:11434/v1",
+		"timeoutMs": 8000,
+		"shortlistSize": 12
+	},
+	"syntax": {
+		"agent": "subagent({agent:\"<name>\", task:\"...\"})",
+		"skill": "read ~/.pi/agent/skills/<name>/SKILL.md",
+		"mcp": "mcp({server:\"<name>\", tool:\"<tool>\", args:{...}})"
+	},
+	"purposes": {
+		"mcp.serena": "symbol-precise reads/edits/rename, LSP references, diagnostics",
+		"mcp.codebase-memory-mcp": "call graph, architecture, multi-hop callers, blast radius (read-only)",
+		"mcp.playwright": "real browser automation",
+		"mcp.figma": "only when the task is about Figma",
+		"mcp.stripe": "only when the task is about Stripe",
+		"mcp.notion": "only when the task is about Notion",
+		"pkg.superpowers": "process skills: brainstorming, plans, TDD, review, worktrees",
+		"pkg.ponytail": "scope/YAGNI discipline and diff review",
+		"pkg.pi-subagents": "subagent tool, roster, lanes, council",
+		"pkg.pi-mcp-adapter": "mcp gateway and mcp__<server> proxies",
+		"pkg.improve": "codebase survey and handoff plans",
+		"pkg.pi-memory": "memory_* tools and scratchpad",
+		"pkg.pi-web-access": "web_search, fetch_content, source_check",
+		"pkg.rpiv-ask-user-question": "structured decision questions",
+		"pkg.rpiv-todo": "todo task tracking",
+		"pkg.pi-permission-system": "command and path permission policy",
+		"pkg.pi-background-tasks": "bg_run/bg_status/bg_logs and the watchdog",
+		"pkg.pi-plan-mode": "plan mode commands",
+		"pkg.openwiki": "repository wiki pages",
+		"pkg.pi-btw": "side-conversation threads"
+	},
+	"planner": {
+		"enabled": true,
+		"timeoutMs": 12000,
+		"maxWorkstreams": 3
+	}
+}

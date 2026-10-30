@@ -52,3 +52,10 @@
 # build artifacts & tool caches (e.g. .agents/skills/*/scripts/**/__pycache__)
 __pycache__/
 *.pyc
+
+# capability-router runtime data (session-derived, machine-local)
+.pi/.pi/
+.pi/agent/mcp-last-seen-version.json
+.pi/agent/pi-web-access/
+.pi/agent/extensions/capability-router/usage.jsonl
+.pi/agent/extensions/capability-router/coverage-*.json

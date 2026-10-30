@@ -11,19 +11,26 @@ $@
    trigger table, §3 packages, §4 MCP servers, §5 the full agent roster (the
    advertised subagent list is capped and is not the roster). Skills need no read —
    they are listed in your prompt. Stay read-only until the plan is approved.
-2. **The plan carries a `## Capabilities` table.** One row per plan step. The
-   `Capability` cell is a single backticked signature, so the plan can be checked
-   against what actually ran:
+2. **The plan carries a `## Capabilities` table — custom capabilities only.**
+   One row per capability *decision*, naming the steps it covers. **Never list
+   natives** (`read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`): you use them
+   by default, so a row for them records nothing and buries the decisions that
+   matter. The cell is a single backticked signature:
 
-   | Step | Capability | Why |
+   | Covers | Capability | Why |
    |---|---|---|
    | map callers | `mcp:codebase-memory-mcp/trace_path` | 3-hop traversal; LSP sees one hop |
    | rename | `mcp:serena/rename_symbol` | LSP-precise, atomic |
    | verify | `subagent:reviewer` | blackbox, no impl context |
-   | read config | `read` | one file, no structure involved |
 
-   Signatures: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`,
-   `mcp:<server>/<tool>`, `subagent:<agent>`, `skill:<name>`, `none`.
+   Signatures: `mcp:<server>/<tool>`, `subagent:<agent>`, `skill:<name>`. A plan
+   that needs none of them says so in one line: `Capabilities: none — all steps are
+   native.`
+
+   **Three are mandatory to address in every coding plan:** `skill:ponytail`,
+   `mcp:serena`, `mcp:codebase-memory-mcp`. Each must appear either as a row (you
+   will actually use it) or in the `Rejected:` line with a reason. Address all
+   three; an unaddressed one is the single omission the router always flags.
 
    **Selection order — stop at the first capability that fully does the step:**
    `read`/`bash` inline → `mcp:<server>/<tool>` for symbol-precise or structural
