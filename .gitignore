@@ -56,6 +56,7 @@ __pycache__/
 # capability-router runtime data (session-derived, machine-local)
 .pi/.pi/
 .pi/agent/mcp-last-seen-version.json
+.pi/agent/mcp-onboarding.json
 .pi/agent/pi-web-access/
 .pi/agent/extensions/capability-router/usage.jsonl
 .pi/agent/extensions/capability-router/coverage-*.json
