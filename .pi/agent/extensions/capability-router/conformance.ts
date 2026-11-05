@@ -201,6 +201,13 @@ export function pendingCorrections({ state, turnFamilies, satisfiedSkills }: Pen
 	);
 }
 
+/** Declared capabilities that are still unused, regardless of the mention schedule. */
+export function unsatisfiedRows(state: ConformanceState): DeclaredRow[] {
+	return state.rows.filter(
+		(row) => !PRIMITIVES.has(row.family) && row.family !== "skill" && !satisfiedBy(row, [...state.observed]),
+	);
+}
+
 /** One message listing every bypassed capability, so nothing is asked twice and nothing is left out. */
 export function renderCorrections(rows: DeclaredRow[], turnFamilies: string[], maxLines = 8): string {
 	const shown = rows.slice(0, maxLines);
@@ -242,7 +249,7 @@ export interface StatusInput {
  * it have anything left to say.
  */
 export function renderStatus({ state, judge, capabilities, blocked, reviewRounds }: StatusInput): string {
-	const unused = state.rows.filter((row) => !PRIMITIVES.has(row.family) && row.family !== "skill" && !satisfiedBy(row, [...state.observed]));
+	const unused = unsatisfiedRows(state);
 	const due = unused.filter((row) => isDue(state, row));
 	const lines = [
 		"capability-router — loaded and evaluating every turn",
@@ -262,4 +269,53 @@ export function renderStatus({ state, judge, capabilities, blocked, reviewRounds
 	}
 	if (state.rows.length === 0) lines.push("no plan rows: nothing is being checked until a plan is submitted or restored at session start");
 	return lines.join("\n");
+}
+
+const SIGNATURE = /\b(skill|mcp|subagent):([a-z0-9_.\/-]+)/gi;
+
+/**
+ * Fallback when a plan has no `## Capabilities` section: harvest the capability signatures the plan
+ * mentions anywhere. Measured: three real plans named serena, codebase-memory-mcp and ponytail in
+ * prose, the parser saw none of it, and 600 turns were checked against zero rows.
+ */
+export function harvestSignatures(plan: string, max = 20): DeclaredRow[] {
+	const seen = new Map<string, DeclaredRow>();
+	for (const line of plan.split("\n")) {
+		for (const match of line.matchAll(SIGNATURE)) {
+			const sig = `${match[1].toLowerCase()}:${match[2]}`.replace(/[.,;:)\-]+$/, "");
+			if (seen.has(sig)) continue;
+			seen.set(sig, { step: line.trim().slice(0, 60) || "mentioned in plan", sig, family: sig.split(":")[0] });
+			if (seen.size >= max) return [...seen.values()];
+		}
+	}
+	return [...seen.values()];
+}
+
+/** Rows for a plan: the declared table if present, otherwise what the plan mentions. */
+export function deriveRows(plan: string): DeclaredRow[] {
+	const declared = parseDeclaredRows(plan);
+	return declared.length > 0 ? declared : harvestSignatures(plan);
+}
+
+/** `/router on`, `/capabilities report` … are commands, not the task. */
+const isCommandText = (text: string) => /^\s*\/[a-z][\w-]*/.test(text) && !text.includes("\n");
+
+/** The last substantive user message in a session, used when no plan was ever submitted. */
+export function lastUserMessage(entries: Array<{ type?: string; message?: { role?: string; content?: unknown } }>): string | null {
+	for (let index = entries.length - 1; index >= 0; index--) {
+		const message = entries[index]?.message;
+		if (message?.role !== "user") continue;
+		const content = message.content;
+		if (typeof content === "string") {
+			if (isCommandText(content)) continue;
+			return content;
+		}
+		if (!Array.isArray(content)) continue;
+		const text = content
+			.filter((block): block is { type: string; text: string } => typeof block === "object" && block !== null && (block as any).type === "text")
+			.map((block) => block.text)
+			.join("\n");
+		if (text.trim() && !isCommandText(text)) return text;
+	}
+	return null;
 }

@@ -152,7 +152,7 @@ export function findings(
 }
 
 /** The message the model receives. Short, specific, and it asks for a re-submission, not silent edits. */
-export function renderFindings(list: Finding[]): string {
+export function renderFindings(list: Finding[], options: { submit?: boolean } = {}): string {
 	if (list.length === 0) return "";
 	const lines = [
 		`Plan capability review — ${list.length} capability issue${list.length === 1 ? "" : "s"}. Triggers are asked as closed questions; rows are judged against the installed inventory:`,
@@ -181,7 +181,9 @@ export function renderFindings(list: Finding[]): string {
 		);
 	}
 	lines.push(
-		"Re-submit the plan with a corrected `| Step | Capability | Why |` table (call plan_mode_complete again, do not change the rest of the plan). Keep a row you disagree with if you can state why in its Why cell.",
+		options.submit === false
+			? "Add a row for each capability above, or state in one line why the step does not need it."
+			: "Re-submit the plan with a corrected `| Step | Capability | Why |` table (call plan_mode_complete again, do not change the rest of the plan). Keep a row you disagree with if you can state why in its Why cell.",
 	);
 	return lines.join("\n");
 }

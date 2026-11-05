@@ -11,7 +11,7 @@ import { buildCapabilities, buildIndex, renderCapabilitySection } from "./indexe
 import { buildQuestion, MAX_HINTS, MIN_PROBABILITY, MIN_TOP, NONE_FLOOR, RELATIVE_FLOOR, select } from "./judge.ts";
 import { HINT_MAX_CHARS, matchedBy, renderHint, toSuggestion, type RouteMap } from "./router.ts";
 import { detectManifest, formatBrief } from "./context.ts";
-import { familyOf, isPlanModeActive, isDue, lastPlanFromBranch, markMentioned, MAX_MENTIONS_PER_ROW, newState, parseDeclaredRows, pendingCorrections, planHash, REASSERT_AFTER_TURNS, renderCorrections, renderStatus, satisfiedBy, workFamilies } from "./conformance.ts";
+import { deriveRows, familyOf, harvestSignatures, isPlanModeActive, lastUserMessage, isDue, lastPlanFromBranch, markMentioned, MAX_MENTIONS_PER_ROW, newState, parseDeclaredRows, pendingCorrections, planHash, REASSERT_AFTER_TURNS, renderCorrections, renderStatus, satisfiedBy, workFamilies } from "./conformance.ts";
 import { extractSteps, findings, MAX_REVIEW_ROUNDS, pairRows, parseRejections, renderFindings, signatureExists } from "./plan-review.ts";
 import { buildTriggerQuestions, coverageFindings, coversSignature, MANDATORY, mandatoryFindings, TRIGGERS, TRIGGER_THRESHOLD } from "./triggers.ts";
 import { cbmIndexPath, probeCapability } from "./availability.ts";
@@ -53,7 +53,8 @@ describe("selection: how many capabilities fit", () => {
 	test("a multi-part task gets several, most likely first", () => {
 		const picked = ids({
 			"agent:security-ai-generated-code-auditor": 0.513,
-			"skill:find-security-vulnerabilities-in-code": 0.206,
+			// was find-security-vulnerabilities-in-code (0.206), removed with the strix uninstall
+			"skill:security-threat-model": 0.206,
 			"skill:improve": 0.1,
 			"agent:security-appsec-engineer": 0.485,
 			"skill:security-and-hardening": 0.056,
@@ -156,7 +157,7 @@ describe("index", () => {
 		expect(index.agents.length).toBe(78);
 		expect(index.prompts.length).toBe(2);
 		expect(index.mcpServers.length).toBe(6);
-		expect(index.skills.length).toBeGreaterThan(55);
+		expect(index.skills.length).toBeGreaterThan(50);
 		expect(index.skills).toContain("ponytail");
 		expect(index.skills).toContain("test-driven-development");
 		const packaged = index.skillEntries.filter((entry) => entry.source !== "user");
@@ -625,5 +626,46 @@ describe("re-assertion and status", () => {
 		satisfied.observed = new Set(["mcp:serena/rename_symbol"]);
 		const text = renderStatus({ state: satisfied });
 		expect(text).toContain("unused: 0 (none due right now)");
+	});
+});
+
+describe("plans without a Capabilities section", () => {
+	const prose = [
+		"## Scope",
+		"First I will use `mcp:serena/find_referencing_symbols` to trace the callers.",
+		"Then `mcp:codebase-memory-mcp/trace_path` for the 3-hop chain, and `skill:ponytail` for scope.",
+		"Same tool again: `mcp:serena/find_referencing_symbols` is not duplicated.",
+	].join("\n");
+
+	test("harvests signatures from prose when there is no table", () => {
+		const rows = harvestSignatures(prose);
+		expect(rows.map((row) => row.sig)).toEqual([
+			"mcp:serena/find_referencing_symbols",
+			"mcp:codebase-memory-mcp/trace_path",
+			"skill:ponytail",
+		]);
+	});
+
+	test("a real table still wins over harvesting", () => {
+		const withTable = "## Capabilities\n| Covers | Capability | Why |\n| --- | --- | --- |\n| x | `mcp:serena/rename_symbol` | y |\n\nAlso mentions `skill:ponytail` in prose.";
+		expect(deriveRows(withTable).map((row) => row.sig)).toEqual(["mcp:serena/rename_symbol"]);
+	});
+
+	test("a plan with no signatures yields no rows (nothing to check, and it says so)", () => {
+		expect(deriveRows("# Plan\nRead the files and fix the bug.")).toEqual([]);
+	});
+});
+
+describe("finding the task when there is no plan", () => {
+	const entries = (messages: string[]) => messages.map((text) => ({ type: "message", message: { role: "user", content: text } }));
+
+	test("skips slash commands and returns the last real task", () => {
+		expect(lastUserMessage(entries(["implement the sweep", "/router on"]) as any)).toBe("implement the sweep");
+		expect(lastUserMessage(entries(["/router on"]) as any)).toBeNull();
+		expect(lastUserMessage([])).toBeNull();
+	});
+
+	test("a multi-line prompt starting with a slash is not treated as a command", () => {
+		expect(lastUserMessage(entries(["/kickoff\nthe real task text here"]) as any)).toContain("real task");
 	});
 });

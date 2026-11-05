@@ -16,7 +16,7 @@ import { projectBrief, type ProjectBrief } from "./context.ts";
 import { planWorkstreams, type PlanSettings } from "./planner.ts";
 import { buildCapabilities, buildIndex, renderCapabilitySection, type Capability, type CapabilityIndex } from "./indexer.ts";
 import { CAPABILITY_PARAMS, inventoryLines, renderInventory } from "./inventory.ts";
-import { familyOf, isPlanModeActive, lastPlanFromBranch, markMentioned, newState, parseDeclaredRows, pendingCorrections, planHash, renderCorrections, renderStatus, type ConformanceState } from "./conformance.ts";
+import { deriveRows, familyOf, isPlanModeActive, lastPlanFromBranch, lastUserMessage, markMentioned, newState, parseDeclaredRows, pendingCorrections, planHash, renderCorrections, renderStatus, unsatisfiedRows, workFamilies, type ConformanceState } from "./conformance.ts";
 import { extractSteps, findings, MAX_REVIEW_ROUNDS, parseRejections, renderFindings, type Finding, type StepJudgement } from "./plan-review.ts";
 import { askTriggers, coverageFindings, mandatoryFindings, TRIGGERS, TRIGGER_THRESHOLD } from "./triggers.ts";
 import { cbmIndexPath, configuredBrowserPath, probeCapability, whichOnPath } from "./availability.ts";
@@ -89,6 +89,9 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	let run: RunState | null = null;
 	let conformance: ConformanceState = newState();
 	let turnFamilies: string[] = [];
+	/** Work turns seen while the router had no rows to check; drives the one-time idle notice. */
+	let workTurnsWithoutRows = 0;
+	let idleNoticeSent = false;
 	/** Rows from a plan submission, committed only once the tool call actually succeeds. */
 	let pendingPlan: ReturnType<typeof parseDeclaredRows> | null = null;
 	/** One review per distinct plan text, so an unchanged re-submission is not re-reviewed (A2). */
@@ -135,7 +138,7 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		reviewRounds = 0;
 		// A reload is required after editing the router; the plan must survive it.
 		const restoredPlan = lastPlanFromBranch(ctx.sessionManager.getBranch() as any);
-		const restoredRows = restoredPlan ? parseDeclaredRows(restoredPlan) : [];
+		const restoredRows = restoredPlan ? deriveRows(restoredPlan) : [];
 		if (restoredRows.length > 0) conformance.rows = restoredRows;
 		updateStatus(ctx);
 		pi.appendEntry("capability-router/restored", {
@@ -198,6 +201,16 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 			return;
 		}
 
+		// No plan, but the task itself may name capabilities (a pasted plan, a task brief). Adopt them
+		// rather than staying idle: measured qa-coloso session had 600 turns with zero rows for this reason.
+		if (conformance.rows.length === 0) {
+			const adopted = deriveRows(event.prompt);
+			if (adopted.length > 0) {
+				conformance.rows = adopted;
+				pi.appendEntry("capability-router/adopted", { source: "prompt", rows: adopted.map((row) => row.sig) });
+			}
+		}
+
 		const cached = cache.get(cacheKey);
 		if (cached) {
 			run = cached;
@@ -254,7 +267,7 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		turnFamilies.push(familyOf(event.toolName, input));
 		if (event.toolName === "plan_mode_complete" && typeof input.plan === "string") {
 			// Commit on success only: a rejected plan submission must not leave stale expectations.
-			pendingPlan = parseDeclaredRows(input.plan);
+			pendingPlan = deriveRows(input.plan);
 		} else {
 			conformance.observed.add(familyOf(event.toolName, input));
 		}
@@ -428,6 +441,155 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 			// Never let bookkeeping break the session.
 		}
 		pi.appendEntry("capability-router/usage", row);
+	});
+
+	// Manual control: the operator's answer to "is it alive, and make it speak now".
+	pi.registerCommand("router", {
+		description: "Router control: /router [status|on|check|kick|review [kick]]",
+		handler: async (args, ctx) => {
+			const sub = (args ?? "").trim().split(/\s+/)[0] || "status";
+			const lines: string[] = [];
+			try {
+				if (sub === "on") {
+					const branch = ctx.sessionManager.getBranch() as any;
+					const plan = lastPlanFromBranch(branch);
+					let rows = plan ? deriveRows(plan) : [];
+					let source = "plan";
+					if (rows.length === 0) {
+						const task = lastUserMessage(branch);
+						if (task) {
+							rows = deriveRows(task);
+							source = "task text";
+						}
+						// Still nothing named: ask the trigger checklist about the task itself.
+						if (rows.length === 0 && task) {
+							const classifier = ctx.modelRegistry.getModelOfType("classifier", judge.provider, judge.model) as never;
+							if (classifier) {
+								const probabilities = await askTriggers(ctx, classifier, task, judge.timeoutMs).catch(() => ({}));
+								rows = TRIGGERS.filter((trigger) => (probabilities[trigger.id] ?? 0) >= TRIGGER_THRESHOLD).map((trigger, index) => ({
+									step: trigger.ask.slice(0, 60),
+									sig: trigger.requires,
+									family: trigger.requires.split(":")[0],
+								}));
+								source = "trigger checklist";
+							}
+						}
+					}
+					if (rows.length === 0) {
+						ctx.ui.notify(
+							"capability-router: nothing to switch on — no plan, and neither the task text nor the trigger checklist names a capability.",
+							"warning",
+						);
+						return;
+					}
+					conformance.rows = rows;
+					conformance.mentionedAt = new Map();
+					conformance.mentions = new Map();
+					conformance.spoken = 0;
+					idleNoticeSent = true;
+					updateStatus(ctx);
+					pi.appendEntry("capability-router/adopted", { source, rows: rows.map((row) => row.sig) });
+					ctx.ui.notify(
+						`capability-router: on (from ${source}) — ${rows.length} capabilities now checked:\n${rows.map((row) => `  - ${row.sig}`).join("\n")}`,
+						"info",
+					);
+					return;
+				}
+				if (sub === "review" || sub === "recommend") {
+					// The plan-review path, on demand: it never ran on plan_complete in sessions where the
+					// plan arrived as a message instead of a plan_mode_complete call.
+					if (!index) rebuild();
+					const branch = ctx.sessionManager.getBranch() as any;
+					const plan = lastPlanFromBranch(branch);
+					const source = plan ?? lastUserMessage(branch);
+					if (!source) {
+						ctx.ui.notify("capability-router: nothing to review — no plan and no task message.", "warning");
+						return;
+					}
+					const rows = deriveRows(source);
+					const classifier = ctx.modelRegistry.getModelOfType("classifier", judge.provider, judge.model) as never;
+					if (!classifier) {
+						ctx.ui.notify("capability-router: classifier not registered — cannot review.", "warning");
+						return;
+					}
+					const probabilities = await askTriggers(ctx, classifier, source, judge.timeoutMs).catch(() => ({}));
+					const rejected = parseRejections(source);
+					const coverage = coverageFindings(probabilities, rows, undefined, undefined, rejected);
+					const required = new Set(
+						TRIGGERS.filter((trigger) => (probabilities[trigger.id] ?? 0) >= TRIGGER_THRESHOLD).map((trigger) => trigger.requires),
+					);
+					const judged = new Map<number, StepJudgement>();
+					await Promise.all(
+						rows.slice(0, 6).map(async (row, position) => {
+							const outcome = await decide(row.step, capabilities, index!, ctx, judge);
+							const top = outcome.picks[0];
+							if (top) judged.set(position, { id: top.capability.id, probability: top.probability });
+						}),
+					);
+					const list: Finding[] = [
+						...mandatoryFindings(rows, rejected),
+						...coverage,
+						...findings(
+							rows.map((row, position) => ({ index: position, text: row.step })),
+							rows,
+							judged,
+							index!,
+							capabilities,
+							{ max: 6, required },
+						),
+					].slice(0, 8);
+					if (list.length === 0) {
+						ctx.ui.notify(
+							`capability-router: review clean — ${rows.length} capabilities checked against ${Object.values(probabilities).filter((p) => p >= TRIGGER_THRESHOLD).length} fired triggers.`,
+							"info",
+						);
+						return;
+					}
+					const text = renderFindings(list, { submit: false });
+					const alsoKick = ((args ?? "").trim().split(/\s+/)[1] ?? "") === "kick";
+					pi.appendEntry("capability-router/plan-review", { findings: list.length, rows: rows.length, manual: true });
+					if (alsoKick) {
+						pi.sendMessage({ customType: "capability-router/plan-review", content: text, display: true }, { deliverAs: "steer" });
+						ctx.ui.notify(`capability-router: review sent to the model (${list.length} findings).`, "info");
+					} else {
+						ctx.ui.notify(`${text}\n\n(send it with /router review kick)`, "info");
+					}
+					return;
+				}
+
+				if (sub === "check" || sub === "kick") {
+					const unused = unsatisfiedRows(conformance);
+					if (unused.length === 0) {
+						ctx.ui.notify(`capability-router: nothing unused${conformance.rows.length === 0 ? " (no plan rows — run /router on)" : ""}.`, "info");
+						return;
+					}
+					const families = ["manual"];
+					const text = renderCorrections(unused, families);
+					if (sub === "check") {
+						ctx.ui.notify(`would send to the model:\n${text}`, "info");
+						return;
+					}
+					markMentioned(conformance, unused);
+					pi.sendMessage({ customType: "capability-router/conformance", content: text, display: true }, { deliverAs: "steer" });
+					ctx.ui.notify(`capability-router: sent ${unused.length} unused capabilities to the model.`, "info");
+					return;
+				}
+				lines.push(
+					renderStatus({
+						state: conformance,
+						judge: `${judge.provider}/${judge.model}`,
+						capabilities: capabilities.length,
+						blocked: blockedRows,
+						reviewRounds,
+					}),
+					"",
+					"commands: /router on — harvest rows from the last plan; /router check — show what it would say; /router kick — send it now.",
+				);
+				ctx.ui.notify(lines.join("\n"), "info");
+			} catch (error) {
+				ctx.ui.notify(`capability-router: ${String(error)}`, "warning");
+			}
+		},
 	});
 
 	pi.registerCommand("capabilities", {

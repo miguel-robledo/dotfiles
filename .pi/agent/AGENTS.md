@@ -240,12 +240,12 @@ explicit justification — "none applied" without evidence is not acceptable.
 
 This table is deliberately terse: it states the **trigger**, which is the part
 the model must not have to infer. `TOOLS.md` holds the full descriptions, the
-complete trigger table for all 57 skills, and every package, MCP server, and
+complete trigger table for all 52 skills, and every package, MCP server, and
 agent.
 
 #### Skills — when to load
 
-The trigger table for all 57 skills lives in `TOOLS.md` → **Skill triggers**.
+The trigger table for all 52 skills lives in `TOOLS.md` → **Skill triggers**.
 Read it before improvising an approach of your own: a skill's description says
 what it does, the trigger table says when it is mandatory.
 
@@ -262,31 +262,20 @@ These fire by default, without being asked for:
 | `ponytail-review` | Reviewing a diff, PR, or commit for over-engineering |
 | `thinking-pre-mortem` | Before committing to a plan, migration, or launch |
 
-#### Security — read the gate below before loading any of these
+#### Security — read the note below before loading any of these
 
 | Skill | Load it when |
 |---|---|
 | `security-threat-model` | Proactively while building or reviewing anything that takes untrusted input, authenticates, or integrates externally. |
 | `security-and-hardening` | Auditing an input handler, triaging dependency/audit findings, or handling personal data (GDPR/CCPA). |
 
-**Gated security-testing skills — never self-initiate.** These run attacks,
-upload source to a third-party cloud, spend credits, or rewrite CI. They are
-model-invocable, but the gate is this rule: **load one only when the user has
-named the target and authorized the test in the current turn**, and state the
-scope back to them before the first command. They also fail Rule 1 class 6
-(cost) and class 7 (blast radius) on their own.
-
-| Skill | What it does | Gate |
-|---|---|---|
-| `penetration-testing-with-strix` | Full pentest of an app/API/repo (OSS CLI, Docker + your LLM key). | Named target + explicit authorization; confirm the target is yours. |
-| `web-app-penetration-testing` | Black-box pentest of a live URL or staging site. | Named URL + authorization. |
-| `api-security-testing` | API pentest from an OpenAPI/GraphQL schema. | Named API + authorization. |
-| `application-security-testing` | Decides which asset needs which test, across a whole product. | User asked for an appsec review. |
-| `owasp-top-10-testing` | Maps testing to OWASP Top 10 categories. | User asked for an OWASP-mapped assessment. |
-| `find-security-vulnerabilities-in-code` | White-box review of source, exploits findings in a sandbox. | User asked to scan this repo. |
-| `managed-pentesting-with-strix` | Runs scans on app.strix.ai: uploads source, spends credits, can trigger an agent-payable Stripe top-up. | User explicitly wants the **managed cloud**, and accepts the upload + spend. |
-| `ci-security-scanning-with-strix` | Adds scanning to CI/CD — writes CI config that runs unattended later. | Rule 1 class 8 + class 5: propose before editing any pipeline. |
-| `fix-security-vulnerabilities-with-strix` | Patches findings and re-runs to prove the fix. | Only from findings the user accepted; code changes still pass Rule 1. |
+**Security testing — nothing installed.** The nine `usestrix/strix`
+security-testing skills were uninstalled on 2026-11-05, together with the `strix`
+CLI and its Docker sandbox image. If any are reinstalled, the same gate returns:
+**load one only when the user has named the target and authorized the test in the
+current turn**, and state the scope back to them before the first command — they
+run attacks, upload source to a third-party cloud, spend credits, or rewrite CI,
+and so fail Rule 1 class 6 (cost) and class 7 (blast radius) on their own.
 
 #### Packages (installed via `settings.json`)
 

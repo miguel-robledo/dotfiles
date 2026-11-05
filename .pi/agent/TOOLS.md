@@ -15,28 +15,20 @@ the same turn. It is hand-maintained — if it disagrees with disk, disk wins.
 | Skill | Source / managed by | Edit survives update? | Description |
 |---|---|---|---|
 | `api-design-principles` | wshobson/agents | no — CLI-managed, silently reverted | Master REST and GraphQL API design principles to build intuitive, scalable, and maintainable APIs that delight developers. Use when designing new APIs, reviewing API specifications, or establishing… |
-| `api-security-testing` | usestrix/strix | no — CLI-managed, silently reverted | Security-test a REST, GraphQL, or gRPC API with Strix — autonomous agents that enumerate endpoints from an OpenAPI/GraphQL schema (or by crawling), then actually exploit the API-specific… |
-| `application-security-testing` | usestrix/strix | no — CLI-managed, silently reverted | Application security testing (AppSec) across a whole product with Strix — decide which asset needs which test (source code, running web app, API, CI pipeline), run it, and turn the results into a… |
 | `brainstorming` | obra/superpowers | no — CLI-managed, silently reverted | You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation. |
 | `caveman` | juliusbrussee/caveman | no — CLI-managed, silently reverted | > Terse caveman voice: answer first, fluff gone, every technical fact kept. Use for /caveman, "caveman mode", "talk like caveman", "be brief", "less tokens". Stays on until "stop caveman" or "normal… |
 | `caveman-commit` | juliusbrussee/caveman | no — CLI-managed, silently reverted | > Write a Conventional Commits message compressed to intent only. Use for "write a commit", "commit message", /commit or /caveman-commit. |
 | `caveman-review` | juliusbrussee/caveman | no — CLI-managed, silently reverted | > Compressed code review - one line per finding with location, problem and fix. Use for /caveman-review, "review this PR", or "review the diff". |
 | `changelog-generator` | composiohq/awesome-claude-skills | no — CLI-managed, silently reverted | Automatically creates user-facing changelogs from git commits by analyzing commit history, categorizing changes, and transforming technical commits into clear, customer-friendly release notes. Turns… |
-| `ci-security-scanning-with-strix` | usestrix/strix | no — CLI-managed, silently reverted | Add security scanning to CI/CD with Strix — GitHub Actions, GitLab CI, or any pipeline — so every pull request gets a diff-scoped AI pentest that blocks vulnerable code before it merges, with results… |
 | `docx` | anthropics/skills | no — CLI-managed, silently reverted | Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files) or Word templates (.dotx files). Triggers include: any mention of 'Word doc', 'word document',… |
 | `error-handling-patterns` | wshobson/agents | no — CLI-managed, silently reverted | Master error handling patterns across languages including exceptions, Result types, error propagation, and graceful degradation to build resilient applications. Use when implementing error handling,… |
 | `fallow` | fallow-rs/fallow-skills | no — CLI-managed, silently reverted | Codebase intelligence for TypeScript and JavaScript. Static analysis reports changed-code risk, cleanup opportunities, duplication, circular dependencies, complexity hotspots, architecture… |
 | `find-docs` | local (hand-written, unmanaged) | yes | >- Retrieves up-to-date documentation, API references, and code examples for any developer technology. Use this skill whenever the user asks about a specific library, framework, SDK, CLI tool, or… |
-| `find-security-vulnerabilities-in-code` | usestrix/strix | no — CLI-managed, silently reverted | Find security vulnerabilities in a codebase or repository with Strix — a white-box AI security review that reads your source, reasons about the actual data flow and authorization model, then exploits… |
 | `find-skills` | vercel-labs/skills | no — CLI-managed, silently reverted | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This… |
-| `fix-security-vulnerabilities-with-strix` | usestrix/strix | no — CLI-managed, silently reverted | Fix security vulnerabilities found by a Strix pentest (open-source CLI or app.strix.ai cloud) — triage by severity, patch the root cause rather than the symptom, and re-run Strix to prove each fix… |
 | `frontend-design` | anthropics/skills | no — CLI-managed, silently reverted | Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated… |
 | `impeccable` | local (hand-written, unmanaged) | yes | Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. Covers… |
 | `improve` | shadcn/improve | no — CLI-managed, silently reverted | Survey any codebase as a senior advisor and produce prioritized, self-contained implementation plans for OTHER models/agents to execute. Strictly read-only on source code — never implements, fixes,… |
 | `interface-design` | dammyjay93/interface-design | no — CLI-managed, silently reverted | This skill is for interface design — dashboards, admin panels, apps, tools, and interactive products. NOT for marketing design (landing pages, marketing sites, campaigns). |
-| `managed-pentesting-with-strix` | usestrix/strix | no — CLI-managed, silently reverted | Run a managed pentest of a web app, API, repository, or local workspace on the app.strix.ai platform with the `strix cloud` CLI or REST API — no local Docker or LLM key needed. Safely review and… |
-| `owasp-top-10-testing` | usestrix/strix | no — CLI-managed, silently reverted | Test an application against the OWASP Top 10 with Strix — autonomous AI agents that attempt real exploits for each category of the current OWASP Top 10:2025 (broken access control including SSRF,… |
-| `penetration-testing-with-strix` | usestrix/strix | no — CLI-managed, silently reverted | Pentest a web app, API, codebase, repository, URL, domain, or IP with Strix — autonomous AI penetration testing that exploits and proves vulnerabilities (OWASP Top 10 and beyond — injection, XSS,… |
 | `pptx` | anthropics/skills | no — CLI-managed, silently reverted | Use this skill any time a .pptx or .potx file is involved in any way — as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting… |
 | `rust-async-patterns` | wshobson/agents | no — CLI-managed, silently reverted | Master Rust async programming with Tokio, async traits, error handling, and concurrent patterns. Use when building async Rust applications, implementing concurrent systems, or debugging async code. |
 | `rust-best-practices` | apollographql/skills | no — CLI-managed, silently reverted | > Guide for writing idiomatic Rust code based on Apollo GraphQL's best practices handbook. Use this skill when: (1) writing new Rust code or functions, (2) reviewing or refactoring existing Rust… |
@@ -47,7 +39,6 @@ the same turn. It is hand-maintained — if it disagrees with disk, disk wins.
 | `systematic-debugging` | obra/superpowers | no — CLI-managed, silently reverted | Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes |
 | `thinking-pre-mortem` | tjboudreaux/cc-thinking-skills | no — CLI-managed, silently reverted | Before committing to a plan or launch, assume it already failed and reason backward through concrete causes — convert failure paths into mitigations, gates, and stop checks. |
 | `vercel-react-best-practices` | vercel-labs/agent-skills | no — CLI-managed, silently reverted | React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance… |
-| `web-app-penetration-testing` | usestrix/strix | no — CLI-managed, silently reverted | Pentest a web app or website end to end — black-box testing of a live URL, staging environment, or local dev server that finds and exploits real vulnerabilities (auth bypass, broken access control,… |
 | `xlsx` | anthropics/skills | no — CLI-managed, silently reverted | Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .xltx, .csv, or .tsv file… |
 
 ### Superpowers package — `~/.pi/agent/git/github.com/obra/superpowers/skills/`
@@ -88,10 +79,12 @@ the same turn. It is hand-maintained — if it disagrees with disk, disk wins.
 | `council-mode` | package (reinstalled on update) | no — package-managed | Run a bounded supervisor-mediated advisor council. Use when the user asks for council mode, asks to convene advisors, debate a decision, cross-examine recommendations, or run /council. |
 | `pi-subagents` | package (reinstalled on update) | no — package-managed | \| Technical guidance for operator-requested delegation to builtin or custom subagents: bounded handoffs, parallel review, scripted workflows, async work, forked context, isolation, and coordinated… |
 
-**Total: 59 skills advertised.** None is hidden from model selection:
-57 omit `disable-model-invocation` (absent = invocable) and `thinking-pre-mortem`
-sets it to `false`. The security-testing skills are gated by rule, not by
-frontmatter — see Rule 2 in `AGENTS.md`.
+**Total: 52 skills advertised.** None is hidden from model selection: every
+skill omits `disable-model-invocation` (absent = invocable) except
+`thinking-pre-mortem`, which sets it to `false`. The Strix security-testing set
+(9 skills, `usestrix/strix`) was uninstalled 2026-11-05; nothing security-testing
+is installed now, so the gated-test policy in Rule 2 applies only if those are
+reinstalled.
 
 
 ## 2. Skill triggers — when to load which skill
@@ -165,25 +158,15 @@ description says *what it does*; this table states *when it is mandatory*.
 | `rust-async-patterns` | Async Rust, Tokio, concurrency, async debugging. |
 | `docx` / `pptx` / `xlsx` | Creating, reading, or editing Word, PowerPoint, or Excel files. |
 
-### Security — gated, never self-initiated
+### Security — nothing gated is installed
 
-The nine security-testing skills are model-invocable but gated by rule (see
-`AGENTS.md` Rule 2): load one only when the user has named the target and
-authorized the test in the current turn. They run attacks, upload source to a
-third-party cloud, spend credits (including an agent-payable Stripe top-up), or
-rewrite CI.
-
-| Skill | What it does | Gate |
-|---|---|---|
-| `penetration-testing-with-strix` | Full pentest of an app/API/repo (OSS CLI, Docker + your LLM key). | Named target + explicit authorization; confirm the target is yours. |
-| `web-app-penetration-testing` | Black-box pentest of a live URL or staging site. | Named URL + authorization. |
-| `api-security-testing` | API pentest from an OpenAPI/GraphQL schema. | Named API + authorization. |
-| `application-security-testing` | Decides which asset needs which test, across a whole product. | User asked for an appsec review. |
-| `owasp-top-10-testing` | Maps testing to OWASP Top 10 categories. | User asked for an OWASP-mapped assessment. |
-| `find-security-vulnerabilities-in-code` | White-box review of source, exploits findings in a sandbox. | User asked to scan this repo. |
-| `managed-pentesting-with-strix` | Runs scans on app.strix.ai: uploads source, spends credits, can trigger an agent-payable Stripe top-up. | User explicitly wants the **managed cloud**, and accepts the upload + spend. |
-| `ci-security-scanning-with-strix` | Adds scanning to CI/CD — writes CI config that runs unattended later. | Rule 1 class 8 + class 5: propose before editing any pipeline. |
-| `fix-security-vulnerabilities-with-strix` | Patches findings and re-runs to prove the fix. | Only from findings the user accepted; code changes still pass Rule 1. |
+**No gated security-testing skills are installed** (the nine `usestrix/strix`
+skills were removed 2026-11-05, along with the `strix` CLI and its Docker
+sandbox image). Non-gated security skills remain: `security-threat-model` and
+`security-and-hardening`. If the Strix set is reinstalled (`bunx skills@latest
+add usestrix/strix`), the Rule 2 gate applies again: load one only when the user
+has named the target and authorized the test in the current turn — they run
+attacks, upload source to a third-party cloud, spend credits, or rewrite CI.
 
 ## 3. Packages
 
