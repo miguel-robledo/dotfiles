@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "omp-plugins",
+      "dependencies": {
+        "@dietrichgebert/ponytail": "^5.3.3",
+      },
+    },
+  },
+  "packages": {
+    "@dietrichgebert/ponytail": ["@dietrichgebert/ponytail@5.3.3", "", {}, "sha512-Gq0ESMi1ZkcY+dvH1dyhOzR3+pYQ/LGW39E4dExcCzhaLe1AMPE43sPrW/JbEiaC986dUWeSzs97WfTABLkdDg=="],
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "plugins": {
+    "document-skills@anthropic-agent-skills": [
+      {
+        "scope": "user",
+        "installPath": "/home/miguel/.omp/plugins/cache/plugins/anthropic-agent-skills___document-skills___0.0.0",
+        "version": "0.0.0",
+        "installedAt": "2026-11-06T15:53:57.414Z",
+        "lastUpdated": "2026-11-06T15:53:57.414Z"
+      }
+    ],
+    "postgres-best-practices@supabase-agent-skills": [
+      {
+        "scope": "user",
+        "installPath": "/home/miguel/.omp/plugins/cache/plugins/supabase-agent-skills___postgres-best-practices___0.1.9",
+        "version": "0.1.9",
+        "installedAt": "2026-11-06T15:53:57.563Z",
+        "lastUpdated": "2026-11-06T15:53:57.563Z"
+      }
+    ]
+  }
+}

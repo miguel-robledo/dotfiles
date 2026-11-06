@@ -1,0 +1,49 @@
+tools:
+  approvalMode: write
+  approval:
+    eval: prompt
+bash:
+  patterns:
+    - match: sudo
+      approval: deny
+    - match: sudo *
+      approval: deny
+    - match: ssh *
+      approval: deny
+    - match: scp *
+      approval: deny
+    - match: sftp *
+      approval: deny
+    - match: rm -rf /
+      approval: deny
+    - match: rm -rf /*
+      approval: deny
+    - match: rm -rf ~
+      approval: deny
+    - match: git push --force*
+      approval: deny
+    - match: git push -f*
+      approval: deny
+memory:
+  backend: mnemopi
+mnemopi:
+  scoping: per-project
+  noEmbeddings: true
+  llmMode: none
+modelRoles:
+  default: ollama/deepseek-v4.1-flash:1017-cloud
+  slow: ollama/kimi-k3.1-pro:cloud
+  plan: ollama/kimi-k3.1-pro:cloud
+  review: ollama/kimi-k3.1-pro:cloud
+  smol: ollama/deepseek-v4.1-flash:1017-cloud
+  commit: ollama/deepseek-v4.1-flash:1017-cloud
+skills:
+  enablePiUser: false
+  enablePiProject: false
+  enableAgentsUser: false
+setupVersion: 3
+task:
+  agentModelOverrides:
+    reviewer: ollama/kimi-k3.1-pro:cloud
+    security-reviewer: ollama/kimi-k3.1-pro:cloud
+    engineering-code-reviewer: ollama/kimi-k3.1-pro:cloud

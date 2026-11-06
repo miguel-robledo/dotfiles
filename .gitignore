@@ -60,3 +60,21 @@ __pycache__/
 .pi/agent/pi-web-access/
 .pi/agent/extensions/capability-router/usage.jsonl
 .pi/agent/extensions/capability-router/coverage-*.json
+
+# ---- omp (oh-my-pi): config only, never runtime state or credentials ----
+!.omp
+.omp/*
+!.omp/agent
+.omp/agent/*
+!.omp/agent/AGENTS.md
+!.omp/agent/config.yml
+!.omp/agent/models.yml
+!.omp/agent/mcp.json
+!.omp/agent/hooks
+!.omp/agent/skills
+!.omp/plugins
+.omp/plugins/*
+!.omp/plugins/package.json
+!.omp/plugins/bun.lock
+!.omp/plugins/installed_plugins.json
+!.omp/plugins/omp-plugins.lock.json
