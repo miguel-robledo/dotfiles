@@ -10,21 +10,11 @@ providers:
         tokenizer: kimi-k2
         input: [text, image]
         contextWindow: 1048576
-        maxTokens: 32000
-        cost:
-          input: 0
-          output: 0
-          cacheRead: 0
-          cacheWrite: 0
+        maxTokens: 32768
       - id: deepseek-v4.1-flash:1017-cloud
         name: DeepSeek v4.1 Flash 1017 (Ollama cloud)
         reasoning: true
         tokenizer: deepseek-v3
         input: [text, image]
         contextWindow: 1048576
-        maxTokens: 32000
-        cost:
-          input: 0
-          output: 0
-          cacheRead: 0
-          cacheWrite: 0
+        maxTokens: 32768

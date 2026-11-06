@@ -67,6 +67,7 @@ __pycache__/
 !.omp/agent
 .omp/agent/*
 !.omp/agent/AGENTS.md
+!.omp/agent/RULES.md
 !.omp/agent/config.yml
 !.omp/agent/models.yml
 !.omp/agent/mcp.json

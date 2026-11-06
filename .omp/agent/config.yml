@@ -44,6 +44,8 @@ skills:
 setupVersion: 3
 task:
   agentModelOverrides:
-    reviewer: ollama/kimi-k3.1-pro:cloud
-    security-reviewer: ollama/kimi-k3.1-pro:cloud
-    engineering-code-reviewer: ollama/kimi-k3.1-pro:cloud
+    reviewer: "@review"
+    security-reviewer: "@review"
+cycleOrder:
+  - default
+  - slow
