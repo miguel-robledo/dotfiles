@@ -86,7 +86,6 @@
           "find",
           "ls",
           "bash",
-          "watchdog_diff",
           "mcp",
           "contact_supervisor"
         ]
@@ -117,16 +116,6 @@
           "mcp"
         ]
       }
-    },
-    "watchdog": {
-      "enabled": false,
-      "scope": {
-        "enabled": false
-      },
-      "cadence": {
-        "everyNTools": 10
-      },
-      "stalemateRepeats": 3
     }
   },
   "hideThinkingBlock": false,
