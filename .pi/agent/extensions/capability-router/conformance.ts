@@ -99,8 +99,19 @@ export function familyOf(toolName: string, input: Record<string, unknown>): stri
 		return typeof input.tool === "string" ? `mcp:${server}/${input.tool}` : `mcp:${server}`;
 	}
 	if (toolName === "mcp") {
-		if (typeof input.server !== "string") return "mcp";
-		return typeof input.tool === "string" ? `mcp:${input.server}/${input.tool}` : `mcp:${input.server}`;
+		const tool = typeof input.tool === "string" ? input.tool : "";
+		// `describe`/`search` are tool metadata lookups, not capability use: counting them let a search
+		// satisfy a declared row for the whole server.
+		if (!tool && ("describe" in input || "search" in input)) return "mcp:lookup";
+		// `mcp({server:"serena"})` with no tool lists that server's tools. Counting it as use made a
+		// capability look "already used" and silently suppressed the nudge that named it.
+		if (!tool) return "mcp:lookup";
+		if (typeof input.server === "string") return tool ? `mcp:${input.server}/${tool}` : `mcp:${input.server}`;
+		if (tool) {
+			const server = serverFromNamespace(tool);
+			return server ? `mcp:${server}/${tool.slice(server.length + 1)}` : `mcp:${tool}`;
+		}
+		return "mcp";
 	}
 	// Agent rows are matched by agent name: one `reviewer` run must not satisfy a declared
 	// `subagent:security-appsec-engineer` (measured: it did, and the appsec row never fired).
@@ -110,6 +121,24 @@ export function familyOf(toolName: string, input: Record<string, unknown>): stri
 		if (skill) return `skill:${skill[1]}`;
 	}
 	return toolName;
+}
+
+/**
+ * Installed MCP server names, longest first. The gateway has a second call shape,
+ * `mcp({tool: "serena_find_symbol"})`, with the server prefixed onto the tool name and no `server`
+ * field. Without this list the family came out as `mcp:undefined/serena_find_symbol`, so every call in
+ * that shape was invisible to conformance, to the nudge dedupe, and to the efficacy metric. Measured
+ * on one real session: 16 of 23 MCP calls used that shape.
+ */
+let knownServers: string[] = [];
+
+export function setKnownServers(names: string[]): void {
+	knownServers = [...new Set(names)].sort((a, b) => b.length - a.length);
+}
+
+/** `serena_find_symbol` → serena, `codebase-memory-mcp_trace_path` → codebase-memory-mcp. */
+function serverFromNamespace(tool: string): string | null {
+	return knownServers.find((server) => tool.startsWith(`${server}_`)) ?? null;
 }
 
 /** Is a declared signature satisfied by what actually ran? `mcp:serena/rename_symbol` ← `mcp:serena`. */
@@ -132,6 +161,17 @@ export function satisfiedBy(declared: DeclaredRow, observed: string[]): boolean 
 		}
 		return seen === sig || seen === head;
 	});
+}
+
+/**
+ * Has this capability already been used in the run?
+ *
+ * Measured defect (fixture session, 2026-11-06): the classifier nudged `skill:systematic-debugging` 14
+ * seconds after the session had read that same SKILL.md. A nudge that names something the model just did
+ * teaches it to ignore the channel — the noise that got the first router retired.
+ */
+export function alreadyUsed(sig: string, observed: Set<string> | string[]): boolean {
+	return satisfiedBy({ step: "", sig, family: sig.split(/[:/]/)[0].toLowerCase() }, [...observed]);
 }
 
 export interface ConformanceState {

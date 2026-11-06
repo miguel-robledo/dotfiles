@@ -11,11 +11,14 @@ import { buildCapabilities, buildIndex, renderCapabilitySection } from "./indexe
 import { buildQuestion, MAX_HINTS, MIN_PROBABILITY, MIN_TOP, NONE_FLOOR, RELATIVE_FLOOR, select } from "./judge.ts";
 import { HINT_MAX_CHARS, matchedBy, renderHint, toSuggestion, type RouteMap } from "./router.ts";
 import { detectManifest, formatBrief } from "./context.ts";
-import { deriveRows, familyOf, harvestSignatures, isPlanModeActive, lastUserMessage, isDue, lastPlanFromBranch, markMentioned, MAX_MENTIONS_PER_ROW, newState, parseDeclaredRows, pendingCorrections, planHash, REASSERT_AFTER_TURNS, renderCorrections, renderStatus, satisfiedBy, workFamilies } from "./conformance.ts";
+import { alreadyUsed, deriveRows, familyOf, harvestSignatures, setKnownServers, isPlanModeActive, lastUserMessage, isDue, lastPlanFromBranch, markMentioned, MAX_MENTIONS_PER_ROW, newState, parseDeclaredRows, pendingCorrections, planHash, REASSERT_AFTER_TURNS, renderCorrections, renderStatus, satisfiedBy, workFamilies } from "./conformance.ts";
 import { extractSteps, findings, MAX_REVIEW_ROUNDS, pairRows, parseRejections, renderFindings, signatureExists } from "./plan-review.ts";
 import { buildTriggerQuestions, coverageFindings, coversSignature, MANDATORY, mandatoryFindings, TRIGGERS, TRIGGER_THRESHOLD } from "./triggers.ts";
 import { cbmIndexPath, probeCapability } from "./availability.ts";
 import { isNoneAnswer, parseWorkstreams } from "./planner.ts";
+import { CLASSIFY_INTERVAL_MS, classifyDue, detect, renderDetection } from "./detect.ts";
+import { parseVerdict, renderCatalog, renderUser } from "./watch.ts";
+import { formatEfficacy, normalizeSig, parseCallLine, parseShown, sessionIdFromPath, summarize, usedWithin, windowFor } from "./efficacy.ts";
 
 const DIR = import.meta.dir;
 const map = JSON.parse(readFileSync(join(DIR, "map.json"), "utf8")) as RouteMap;
@@ -60,9 +63,9 @@ describe("selection: how many capabilities fit", () => {
 			"skill:security-and-hardening": 0.056,
 			none: 0.005,
 		});
-		expect(picked.length).toBeGreaterThanOrEqual(4);
+		expect(picked).toEqual(["agent:security-ai-generated-code-auditor", "agent:security-appsec-engineer"]);
+		// Ordering still wins over volume: the two strongest survive the cap, the rest are dropped.
 		expect(picked[0]).toBe("agent:security-ai-generated-code-auditor");
-		expect(picked).toContain("skill:improve");
 	});
 
 	test("an agent below the delegation bar is dropped, mcp and skills are not", () => {
@@ -91,7 +94,7 @@ describe("selection: how many capabilities fit", () => {
 		expect(ids({ "agent:engineering-sre": 0.5, none: NONE_FLOOR })).toEqual([]);
 	});
 
-	test("keeps a plausible tail but drops noise", () => {
+	test("keeps the two strongest, drops everything below them", () => {
 		const picked = ids({
 			"agent:engineering-database-optimizer": 0.62,
 			"agent:engineering-backend-architect": 0.5,
@@ -99,7 +102,7 @@ describe("selection: how many capabilities fit", () => {
 			"mcp:notion": MIN_PROBABILITY - 0.01,
 			none: 0.013,
 		});
-		expect(picked).toEqual(["agent:engineering-database-optimizer", "agent:engineering-backend-architect", "mcp:serena"]);
+		expect(picked).toEqual(["agent:engineering-database-optimizer", "agent:engineering-backend-architect"]);
 	});
 
 	test("flat distribution: relative floor does the work", () => {
@@ -258,7 +261,9 @@ describe("conformance", () => {
 	test("maps tool calls to families", () => {
 		expect(familyOf("mcp__serena", {})).toBe("mcp:serena");
 		expect(familyOf("mcp__codebase_memory_mcp", {})).toBe("mcp:codebase-memory-mcp");
-		expect(familyOf("mcp", { server: "playwright" })).toBe("mcp:playwright");
+		// A bare server call lists its tools; it invokes nothing. Measured on a real run: counting it as
+		// use made serena look "already used" and silently suppressed the nudge naming it.
+		expect(familyOf("mcp", { server: "playwright" })).toBe("mcp:lookup");
 		expect(familyOf("subagent", { agent: "reviewer" })).toBe("subagent:reviewer");
 		expect(familyOf("read", { path: "/home/m/.pi/agent/skills/ponytail/SKILL.md" })).toBe("skill:ponytail");
 		expect(familyOf("bash", { command: "ls" })).toBe("bash");
@@ -667,5 +672,257 @@ describe("finding the task when there is no plan", () => {
 
 	test("a multi-line prompt starting with a slash is not treated as a command", () => {
 		expect(lastUserMessage(entries(["/kickoff\nthe real task text here"]) as any)).toContain("real task");
+	});
+});
+
+describe("efficacy: shown vs used", () => {
+	const calls = (families: string[]) => families.map((family, index) => ({ ts: 1_000 + index, family }));
+
+	test("agent: rows are measured in the subagent vocabulary", () => {
+		expect(normalizeSig("agent:reviewer")).toBe("subagent:reviewer");
+		expect(normalizeSig("mcp:serena")).toBe("mcp:serena");
+		expect(usedWithin(calls(["read", "subagent:reviewer"]), 999, "agent:reviewer", 5)).toBe(true);
+	});
+
+	test("a hit must come after the hint and inside the window", () => {
+		expect(usedWithin(calls(["mcp:serena/find_symbol"]), 999, "mcp:serena", 5)).toBe(true);
+		expect(usedWithin(calls(["read", "bash", "mcp:serena/find_symbol"]), 999, "mcp:serena", 2)).toBe(false);
+		expect(usedWithin(calls(["mcp:codebase-memory-mcp/trace_path"]), 999, "mcp:serena", 5)).toBe(false);
+	});
+
+	test("a call before the hint does not count", () => {
+		expect(usedWithin([{ ts: 500, family: "mcp:serena/index_status" }], 1_000, "mcp:serena", 5)).toBe(false);
+	});
+
+	test("a tool-level row wants that tool, a server row accepts any of them", () => {
+		expect(usedWithin(calls(["mcp:serena/index_status"]), 999, "mcp:serena/rename_symbol", 5)).toBe(false);
+		expect(usedWithin(calls(["mcp:serena/index_status"]), 999, "mcp:serena", 5)).toBe(true);
+	});
+
+	test("reading a SKILL.md is a skill use", () => {
+		const line = JSON.stringify({
+			timestamp: "2026-11-06T00:00:00.000Z",
+			message: { content: [{ type: "toolCall", name: "read", arguments: { path: "/x/skills/find-docs/SKILL.md" } }] },
+		});
+		expect(parseCallLine(line).map((call) => call.family)).toEqual(["skill:find-docs"]);
+	});
+
+	test("non-call lines are skipped without parsing", () => {
+		expect(parseCallLine('{"type":"message","message":{"role":"user"}}')).toEqual([]);
+		expect(parseCallLine("not json")).toEqual([]);
+	});
+
+	test("all three usage schemas are read", () => {
+		const ts = "2026-11-06T00:00:00.000Z";
+		expect(parseShown(JSON.stringify({ ts, session: "s", picks: ["mcp:serena"] })).length).toBe(1);
+		expect(parseShown(JSON.stringify({ ts, session: "s", suggested: ["skill:find-docs"] })).length).toBe(1);
+		expect(parseShown(JSON.stringify({ ts, session: "s", target: "agent:reviewer" })).length).toBe(1);
+		expect(parseShown(JSON.stringify({ ts, session: "s", picks: ["serena"] }))).toEqual([]);
+		expect(parseShown(JSON.stringify({ session: "s", picks: ["mcp:serena"] }))).toEqual([]);
+	});
+
+	test("the session id comes out of the file name", () => {
+		expect(sessionIdFromPath("/x/2026-11-06T12-28-48-409Z_01a1b0d5-4194-7157-9bdb-f09210f22465.jsonl")).toBe(
+			"01a1b0d5-4194-7157-9bdb-f09210f22465",
+		);
+		expect(sessionIdFromPath("/x/notes.md")).toBeNull();
+	});
+
+	test("summarize counts per capability, busiest first", () => {
+		const shown = [
+			{ ts: 999, shownAt: 999, session: "a", sig: "mcp:serena" },
+			{ ts: 999, shownAt: 999, session: "a", sig: "mcp:serena" },
+			{ ts: 999, shownAt: 999, session: "b", sig: "skill:find-docs" },
+		];
+		const map = new Map([
+			["a", calls(["mcp:serena/index_status"])],
+			["b", calls(["bash", "bash"])],
+		]);
+		const rows = summarize(shown, map, 5);
+		expect(rows[0]).toEqual({ sig: "mcp:serena", shown: 2, used: 2 });
+		expect(rows[1]).toEqual({ sig: "skill:find-docs", shown: 1, used: 0 });
+	});
+
+	test("a legacy row is measured over the run it settles, not after its timestamp", () => {
+		const sessionCalls = calls(["read", "mcp:serena/find_symbol", "bash"]);
+		const legacy = { ts: 1_001, session: "a", sig: "mcp:serena" };
+		expect(windowFor(legacy, -Infinity, sessionCalls, 5).map((call) => call.family)).toEqual(["read", "mcp:serena/find_symbol"]);
+		expect(usedWithin(sessionCalls, legacy.ts, "mcp:serena", 5)).toBe(false);
+	});
+
+	test("the previous hint bounds a legacy window", () => {
+		const sessionCalls = calls(["mcp:serena", "bash", "read"]);
+		const current = { ts: 1_002, session: "a", sig: "skill:find-docs" };
+		expect(windowFor(current, 1_000, sessionCalls, 5).map((call) => call.family)).toEqual(["bash", "read"]);
+	});
+
+	test("a report with nothing matched says so instead of 0%", () => {
+		const text = formatEfficacy({
+			days: 14,
+			window: 20,
+			sessions: 0,
+			shown: 0,
+			used: 0,
+			pct: 0,
+			basis: { exact: 0, run: 0 },
+			rows: [],
+			neverUsed: [],
+		});
+		expect(text).toContain("nothing to measure yet");
+	});
+});
+
+describe("state detection: what the call itself implies", () => {
+	test("a single-symbol grep is the case serena answers better", () => {
+		const found = detect("grep", { pattern: "handleToolCall" });
+		expect(found?.sig).toBe("mcp:serena");
+		expect(found?.syntax).toContain('name_path_pattern:"handleToolCall"');
+		expect(renderDetection(found!).length).toBeLessThan(320);
+	});
+
+	test("a regex or a phrase is not a symbol", () => {
+		expect(detect("grep", { pattern: "handle.*Call" })).toBeNull();
+		expect(detect("grep", { pattern: "tool call handling" })).toBeNull();
+		expect(detect("grep", {})).toBeNull();
+	});
+
+	test("three reads in one session are a module scan", () => {
+		expect(detect("read", { path: "/x/a.ts" }, 2)).toBeNull();
+		expect(detect("read", { path: "/x/a.ts" }, 3)?.sig).toBe("mcp:codebase-memory-mcp");
+	});
+
+	test("anything else is silent", () => {
+		expect(detect("bash", { command: "ls" }, 9)).toBeNull();
+		expect(detect("write", { path: "/x/a.ts" }, 9)).toBeNull();
+	});
+
+	test("a very long pattern is treated as a regex, not a symbol", () => {
+		expect(detect("grep", { pattern: "a".repeat(61) })).toBeNull();
+	});
+});
+
+describe("bounded drift classifier", () => {
+	const now = 1_000_000_000_000;
+	const base = { inFlight: false, lastAt: now - CLASSIFY_INTERVAL_MS - 1, now, lastWork: "bash" };
+
+	test("fires once the interval has passed and the work is manual", () => {
+		expect(classifyDue(base)).toBe(true);
+	});
+
+	test("silent inside the interval", () => {
+		expect(classifyDue({ ...base, lastAt: now - 1_000 })).toBe(false);
+	});
+
+	test("silent while a call is in flight", () => {
+		expect(classifyDue({ ...base, inFlight: true })).toBe(false);
+	});
+
+	test("silent when the last step already used a capability", () => {
+		expect(classifyDue({ ...base, lastWork: "mcp:serena/find_symbol" })).toBe(false);
+		expect(classifyDue({ ...base, lastWork: "subagent:reviewer" })).toBe(false);
+	});
+
+	test("silent when nothing has run yet", () => {
+		expect(classifyDue({ ...base, lastWork: "" })).toBe(false);
+	});
+});
+
+describe("a nudge never names what already happened", () => {
+	test("a skill the session already read is not suggested again", () => {
+		expect(alreadyUsed("skill:systematic-debugging", new Set(["skill:systematic-debugging", "read"]))).toBe(true);
+		expect(alreadyUsed("skill:test-driven-development", new Set(["skill:systematic-debugging"]))).toBe(false);
+	});
+
+	test("a server-level signature accepts any tool on that server", () => {
+		expect(alreadyUsed("mcp:serena", ["mcp:serena/index_status"])).toBe(true);
+		expect(alreadyUsed("mcp:serena", ["mcp:codebase-memory-mcp/get_architecture"])).toBe(false);
+	});
+
+	test("a tool-level signature wants that tool", () => {
+		expect(alreadyUsed("mcp:serena/rename_symbol", ["mcp:serena/index_status"])).toBe(false);
+	});
+
+	test("nothing observed means nothing is used", () => {
+		expect(alreadyUsed("mcp:serena", [])).toBe(false);
+	});
+});
+
+describe("the gateway's two call shapes", () => {
+	test("server in a field", () => {
+		expect(familyOf("mcp", { server: "serena", tool: "find_symbol" })).toBe("mcp:serena/find_symbol");
+		expect(familyOf("mcp", { server: "serena" })).toBe("mcp:lookup");
+	});
+
+	test("server prefixed onto the tool name", () => {
+		setKnownServers(["serena", "codebase-memory-mcp", "playwright"]);
+		expect(familyOf("mcp", { tool: "serena_find_symbol", args: {} })).toBe("mcp:serena/find_symbol");
+		expect(familyOf("mcp", { tool: "codebase-memory-mcp_trace_path" })).toBe("mcp:codebase-memory-mcp/trace_path");
+		expect(familyOf("mcp", { tool: "playwright_browser_navigate" })).toBe("mcp:playwright/browser_navigate");
+	});
+
+	test("a lookup is not a use", () => {
+		setKnownServers(["serena", "codebase-memory-mcp"]);
+		expect(familyOf("mcp", { describe: "codebase-memory-mcp_index_repository" })).toBe("mcp:lookup");
+		expect(familyOf("mcp", { search: "initial_instructions", server: "serena" })).toBe("mcp:lookup");
+	});
+
+	test("an unknown prefix stays whole rather than inventing a server", () => {
+		setKnownServers(["serena"]);
+		expect(familyOf("mcp", { tool: "unknown_server_tool" })).toBe("mcp:unknown_server_tool");
+	});
+});
+
+describe("the watching senior", () => {
+	const known = new Set(["mcp:serena", "skill:find-docs"]);
+
+	test("a valid verdict is an id plus an instruction", () => {
+		expect(parseVerdict("mcp:serena | use find_symbol on FormData instead of that grep", known)).toEqual({
+			sig: "mcp:serena",
+			line: "use find_symbol on FormData instead of that grep",
+		});
+	});
+
+	test("silence is silence", () => {
+		expect(parseVerdict("SILENT", known)).toBeNull();
+		expect(parseVerdict("  silent  \n", known)).toBeNull();
+		expect(parseVerdict("", known)).toBeNull();
+	});
+
+	test("an invented id is dropped, not rendered", () => {
+		expect(parseVerdict("mcp:nonexistent | do the thing", known)).toBeNull();
+		expect(parseVerdict("serena | missing the prefix", known)).toBeNull();
+	});
+
+	test("an id with no instruction is dropped", () => {
+		expect(parseVerdict("mcp:serena |", known)).toBeNull();
+	});
+
+	test("backticks and preamble are tolerated", () => {
+		expect(parseVerdict("`skill:find-docs` | look up the Bun fetch API", known)?.sig).toBe("skill:find-docs");
+	});
+
+	test("the catalog leaves out agents and anything already used", () => {
+		const caps = [
+			{ id: "agent:reviewer", kind: "agent", name: "reviewer", description: "reviews", syntax: "" },
+			{ id: "mcp:serena", kind: "mcp", name: "serena", description: "symbol tools", syntax: "" },
+			{ id: "skill:find-docs", kind: "skill", name: "find-docs", description: "docs", syntax: "" },
+		] as never[];
+		const out = renderCatalog(caps, new Set(["skill:find-docs"]), 10);
+		expect(out).toContain("mcp:serena");
+		expect(out).not.toContain("find-docs");
+		expect(out).not.toContain("reviewer");
+	});
+
+	test("the user message carries the actions in order", () => {
+		const text = renderUser("fix the drift", ["bash bun test", "read src/money.ts"], "mcp:serena — symbols");
+		expect(text.indexOf("1. bash bun test")).toBeLessThan(text.indexOf("2. read src/money.ts"));
+		expect(text).toContain("Task: fix the drift");
+	});
+});
+
+describe("listing a server's tools is not using them", () => {
+	test("a bare server call is a lookup", () => {
+		expect(familyOf("mcp", { server: "serena" })).toBe("mcp:lookup");
+		expect(alreadyUsed("mcp:serena", ["mcp:lookup"])).toBe(false);
 	});
 });

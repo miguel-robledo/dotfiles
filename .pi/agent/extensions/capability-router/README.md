@@ -18,10 +18,15 @@ your message
         └─→ classify each workstream                                   (adds project specifics)
   → merge both, dedupe, order: raw picks first
   → emit one line per fitting capability: silent if "none" ≥ 0.25 or the best option < 0.12;
-    otherwise every option above max(0.05, 0.15 × best); 4 per question, 6 total
+    otherwise every option above max(0.05, 0.15 × best); **2 per hint** (measured, see below)
   → agents must additionally clear p ≥ 0.45 (measured: implementation-shaped steps matched
     "expert X engineer" personas at 0.20–0.29 and would have over-delegated four times)
 ```
+
+**Hint budget, measured.** `/capabilities efficacy` over 14 days and 475 hints: all 21 hints that were
+acted on came from position 0. The 134 hints in position 1 produced none, and the 119 in position 2 or
+later produced none. The budget was 4 per question / 6 total until 2026-11-06; capping the merged list
+at 2 removes 119 hints that were never followed without dropping a slot that has a signal yet.
 
 The raw classification is never dropped, because two measured failure modes showed why: rewritten
 workstreams can classify *weaker* than the original text, and the planner answered `none` for
@@ -105,7 +110,9 @@ blob; there is no cloud tag for the 9B `clef-flash`.
 | `report.ts` | Session mining → coverage of the installed inventory. |
 | `inventory.ts` | The `capabilities` tool: 145 entries (78 agents, 61 skills incl. package skills, 6 MCP) with `kind`/`detail`/`query`. |
 | `conformance.ts` | In-run check: declared plan rows vs families actually used, with a hard noise budget. |
-| `router.test.ts` | 32 pure tests: question shape, gate (real distributions), hint budget, matcher, index, conformance budget. |
+| `efficacy.ts` | `/capabilities efficacy`: did a shown capability get used in the run it was shown for. Baseline for every nudge change. |
+| `detect.ts` | What the last tool call itself implies (symbol grep → serena, a module scan → codebase-memory-mcp), rendered as a one-line tail nudge. |
+| `router.test.ts` | 90 pure tests: question shape, gate (real distributions), hint budget, matcher, index, conformance budget, efficacy. |
 
 ## Tuning
 

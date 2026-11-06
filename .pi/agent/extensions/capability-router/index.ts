@@ -16,13 +16,16 @@ import { projectBrief, type ProjectBrief } from "./context.ts";
 import { planWorkstreams, type PlanSettings } from "./planner.ts";
 import { buildCapabilities, buildIndex, renderCapabilitySection, type Capability, type CapabilityIndex } from "./indexer.ts";
 import { CAPABILITY_PARAMS, inventoryLines, renderInventory } from "./inventory.ts";
-import { deriveRows, familyOf, isPlanModeActive, lastPlanFromBranch, lastUserMessage, markMentioned, newState, parseDeclaredRows, pendingCorrections, planHash, renderCorrections, renderStatus, unsatisfiedRows, workFamilies, type ConformanceState } from "./conformance.ts";
+import { alreadyUsed, deriveRows, familyOf, isPlanModeActive, lastPlanFromBranch, lastUserMessage, setKnownServers, markMentioned, newState, parseDeclaredRows, pendingCorrections, planHash, renderCorrections, renderStatus, unsatisfiedRows, workFamilies, type ConformanceState } from "./conformance.ts";
 import { extractSteps, findings, MAX_REVIEW_ROUNDS, parseRejections, renderFindings, type Finding, type StepJudgement } from "./plan-review.ts";
 import { askTriggers, coverageFindings, mandatoryFindings, TRIGGERS, TRIGGER_THRESHOLD } from "./triggers.ts";
 import { cbmIndexPath, configuredBrowserPath, probeCapability, whichOnPath } from "./availability.ts";
 import { decide, DEFAULT_JUDGE, type JudgeOutcome } from "./judge.ts";
 import { matchedBy, renderHint, toSuggestion, type RouteMap, type Suggestion } from "./router.ts";
 import { agentDir, EXTENSION_DIR, formatCoverage, mineCoverage, writeJson, type Inventory } from "./report.ts";
+import { efficacyFor, formatEfficacy } from "./efficacy.ts";
+import { classifyDue, detect, renderDetection, type Detection } from "./detect.ts";
+import { askWatcher, DEFAULT_WATCH, renderCatalog, renderVerdict, type Verdict, type WatchSettings } from "./watch.ts";
 
 const TOOL_SEARCH = "tool_search";
 const USAGE_FILE = join(EXTENSION_DIR, "usage.jsonl");
@@ -65,10 +68,15 @@ function flagValue(argv: string[], name: string, fallback: number): number {
 interface RunState {
 	picks: Suggestion[];
 	workstreams: number;
+	/** When the hint was shown. The row is written at settle, so `ts` is the END of the run. */
+	shownAt: string;
 }
 
-/** Total hints per prompt; each workstream may contribute up to judge.MAX_HINTS. */
-const MAX_TOTAL_HINTS = 6;
+/**
+ * Total hints per prompt. The merged list is what the model reads, so the measured budget applies
+ * here: every hint that was acted on came from position 0, and positions 2+ produced none.
+ */
+const MAX_TOTAL_HINTS = 2;
 
 export default function capabilityRouter(pi: ExtensionAPI) {
 	const map = loadMap();
@@ -78,6 +86,11 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		maxWorkstreams: map.planner?.maxWorkstreams ?? 3,
 	};
 	const plannerEnabled = map.planner?.enabled !== false;
+	const watch: WatchSettings = { ...DEFAULT_WATCH, ...(map.watch ?? {}) };
+	const watchEnabled = watch.enabled && watch.provider !== "";
+	// One switch for everything the router does except the watching senior: head hint, rule detector,
+	// bounded classifier, plan review, conformance nagging. Used to test the senior in isolation.
+	const routerEnabled = map.router?.enabled !== false;
 	const briefs = new Map<string, ProjectBrief>();
 	// Registering the classifier is what makes Clef addressable at all: models.json cannot declare it.
 	const judgeReady = map.judge?.enabled === false ? false : registerClef(pi, judge) !== null;
@@ -87,6 +100,25 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	let section = "";
 	let sessionId = "";
 	let run: RunState | null = null;
+	// What the last tool call implies, and which detections have already been shown this session.
+	// A tail line is shown once per capability per session: repeating it is the nagging that got the
+	// first router ignored.
+	let pendingDetection: Detection | null = null;
+	let pendingWatch: Verdict | null = null;
+	let watchInFlight = false;
+	let watchSpoken = 0;
+	let watchFiredThisTurn = false;
+	// What the turn actually did, in enough detail for the watcher to judge it: a family name alone
+	// (`bash`) cannot distinguish a symbol grep from a test run.
+	let turnActions: string[] = [];
+	let pendingClassified: Detection | null = null;
+	const nudged = new Set<string>();
+	const readPaths = new Set<string>();
+	// Bounded drift detection: at most one classifier call per CLASSIFY_INTERVAL_MS, and only while the
+	// work is being done by hand.
+	let lastWork = "";
+	let lastClassifyAt = 0;
+	let classifyInFlight = false;
 	let conformance: ConformanceState = newState();
 	let turnFamilies: string[] = [];
 	/** Work turns seen while the router had no rows to check; drives the one-time idle notice. */
@@ -125,6 +157,9 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		index = buildIndex(agentDir(), { mcpServers: mcpNames(pi), packages: packageNames(pi) });
 		capabilities = buildCapabilities(index, map);
 		section = renderCapabilitySection(index, map);
+		// The gateway's second call shape carries the server in the tool name; the resolver needs the
+		// installed names to split it.
+		setKnownServers(index.mcpServers);
 	};
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -186,6 +221,11 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		const standard = new Set(["preamble", "tools", "rules", "docs", "project_context", "skills", "cwd", "capability_map", "routing_hint", "advertised_subagents", "pi_background_shell_policy"]);
 		activeModeSkills = new Set(Object.keys(sections).filter((key) => !standard.has(key)));
 		if (section) sections.capability_map = section;
+		if (!routerEnabled) {
+			run = null;
+			delete sections.routing_hint;
+			return;
+		}
 		if (event.messageType !== "user") {
 			delete sections.routing_hint;
 			return;
@@ -254,7 +294,7 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 				merged.push(suggestion);
 			}
 		}
-		run = { picks: merged, workstreams: plan.workstreams.length };
+		run = { picks: merged, workstreams: plan.workstreams.length, shownAt: new Date().toISOString() };
 		if (cache.size > 50) cache.clear();
 		cache.set(cacheKey, run);
 		const hint = renderHint(run.picks);
@@ -264,7 +304,14 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 
 	pi.on("tool_call", (event) => {
 		const input = (event.input ?? {}) as Record<string, unknown>;
-		turnFamilies.push(familyOf(event.toolName, input));
+		// Read the call before the bookkeeping below: this is the only place a capability gap is visible
+		// while the work can still change.
+		pendingDetection = routerEnabled ? detect(event.toolName, input, readPaths.size) : null;
+		if (event.toolName === "read" && typeof input.path === "string") readPaths.add(input.path);
+		const family = familyOf(event.toolName, input);
+		if (workFamilies([family]).length > 0) lastWork = family;
+		turnActions.push(`${event.toolName} ${JSON.stringify(input)}`.slice(0, 160));
+		turnFamilies.push(family);
 		if (event.toolName === "plan_mode_complete" && typeof input.plan === "string") {
 			// Commit on success only: a rejected plan submission must not leave stale expectations.
 			pendingPlan = deriveRows(input.plan);
@@ -277,6 +324,105 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 				pi.appendEntry("capability-router/followed", { name: pick.name, kind: pick.kind });
 			}
 		}
+	});
+
+	// The nudge at the tail, not the head. The head section is written once per run and stays static for
+	// every turn of it; this lands immediately after the tool result the model just read, which is where
+	// it is actually looked at. Once per capability per session.
+	pi.on("context", (event) => {
+		// Precedence: a rule that read the actual call, then the senior who read the turn, then the
+		// classifier that only saw the prompt.
+		const source = pendingDetection ?? pendingWatch ?? pendingClassified;
+		if (!source) return;
+		if (source === pendingDetection) pendingDetection = null;
+		else if (source === pendingWatch) pendingWatch = null;
+		else pendingClassified = null;
+		const isRule = "rule" in source;
+		const sig = source.sig;
+		const text = isRule ? renderDetection(source as Detection) : renderVerdict(source as Verdict);
+		// Never name what the session has already done, and never repeat: measured on the fixture run,
+		// the classifier nudged a skill the model had read 14 seconds earlier.
+		if (nudged.has(sig) || alreadyUsed(sig, conformance.observed)) return;
+		nudged.add(sig);
+		// Persisted breadcrumb: the injected message itself is per-request and never lands in the
+		// transcript, so without this line the tail is unobservable from a session file (and the whole
+		// mechanism is unfalsifiable).
+		try {
+			pi.appendEntry("capability-router/nudge", { sig, rule: isRule ? (source as Detection).rule : "watch" });
+		} catch {
+			// Bookkeeping must never break a run.
+		}
+		return { messages: [...event.messages, { role: "system", content: text }] };
+	});
+
+	// Drift: a run that has been doing the work by hand for a while gets one classifier look, so a
+	// capability the prompt-time picker missed can still be named while the work is changeable. Fired
+	// and forgotten — the handler must not put a two-second model call in front of the next turn.
+	pi.on("turn_end", async (_event, ctx) => {
+		if (!routerEnabled || !judgeReady || !index) return;
+		const now = Date.now();
+		if (!classifyDue({ inFlight: classifyInFlight, lastAt: lastClassifyAt, now, lastWork })) return;
+		const task = lastUserMessage(ctx.sessionManager.getBranch() as any);
+		if (!task) return;
+		lastClassifyAt = now;
+		classifyInFlight = true;
+		void decide(`${task}\n\nMost recent step: ${lastWork}`, capabilities, index, ctx, judge)
+			.then((outcome) => {
+				const top = outcome.picks[0];
+				if (!top) return;
+				const suggestion = toSuggestion(top.capability);
+				pendingClassified = {
+					sig: `${suggestion.kind}:${suggestion.name}`,
+					syntax: suggestion.syntax,
+					why: suggestion.why,
+					rule: "classifier",
+				};
+			})
+			.catch(() => {
+				// Advisory only: a classifier failure is silence, never a broken run.
+			})
+			.finally(() => {
+				classifyInFlight = false;
+			});
+	});
+
+	// The senior speaks mid-turn, not at the end of it.
+	//
+	// Measured on a two-turn probe: firing at `turn_end` produced a correct verdict ("use find_references
+	// on reconcileLedgerEntry") that arrived after the run's last request, so it was never delivered. One
+	// call per turn is the right budget; the wrong moment is what made it useless. Firing after the
+	// second action leaves the model ~1 s of work to finish, which is enough for the verdict to be ready
+	// when the next request is built.
+	pi.on("tool_result", async (_event, ctx) => {
+		if (!watchEnabled || !index || watchInFlight || watchFiredThisTurn) return;
+		if (watchSpoken >= watch.maxMessages || pendingWatch || turnActions.length < 2) return;
+		const task = lastUserMessage(ctx.sessionManager.getBranch() as any) ?? "";
+		const catalog = renderCatalog(capabilities, conformance.observed, watch.maxCatalog);
+		if (!catalog) return;
+		watchFiredThisTurn = true;
+		watchInFlight = true;
+		watchSpoken += 1;
+		const actions = [...turnActions];
+		await askWatcher(ctx, { task, actions, catalog }, watch)
+			.then((verdict) => {
+				const kept = verdict && !nudged.has(verdict.sig) && !alreadyUsed(verdict.sig, conformance.observed) ? verdict : null;
+				try {
+					pi.appendEntry("capability-router/watch", {
+						verdict: kept ? kept.sig : null,
+						spoken: kept ? kept.line : null,
+						dropped: verdict && !kept ? verdict.sig : null,
+					});
+				} catch {
+					// Bookkeeping must never break a run.
+				}
+				if (kept) pendingWatch = kept;
+			})
+			.catch(() => {
+				// A watcher failure is silence, never a stalled turn.
+			})
+			.finally(() => {
+				watchInFlight = false;
+			});
 	});
 
 	pi.on("tool_result", (event) => {
@@ -305,6 +451,7 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		conformance.lastSpoke = 0;
 		conformance.planKey = `${conformance.rows.length}:${rows[0].sig}`;
 
+		if (!routerEnabled) return;
 		// Plan-time review: classify the plan's own steps and send findings back so the *model* rewrites
 		// the table. The router never edits the plan (measured: the model writes better and learns).
 		const plan = typeof (event.input as { plan?: unknown })?.plan === "string" ? String((event.input as { plan: string }).plan) : "";
@@ -362,8 +509,13 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	pi.on("turn_end", (_event, ctx) => {
 		conformance.turn += 1;
 		const families = turnFamilies;
+		const actions = turnActions;
 		turnFamilies = [];
-		const pending = pendingCorrections({ state: conformance, turnFamilies: families, satisfiedSkills: activeModeSkills });
+		turnActions = [];
+		watchFiredThisTurn = false;
+		const pending = routerEnabled
+			? pendingCorrections({ state: conformance, turnFamilies: families, satisfiedSkills: activeModeSkills })
+			: [];
 		// Trace first, unconditionally: "the check never ran" and "the check ran and had nothing to say"
 		// must be distinguishable from the transcript.
 		pi.appendEntry("capability-router/evaluated", {
@@ -430,6 +582,9 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 		if (!run) return;
 		const row = {
 			ts: new Date().toISOString(),
+			// `shownAt` is the only timestamp a measurement may use: `ts` is when the row settles, which is
+			// after every tool call the hint was supposed to influence.
+			shownAt: run.shownAt,
 			session: sessionId,
 			picks: run.picks.map((pick) => `${pick.kind}:${pick.name}`),
 			workstreams: run.workstreams,
@@ -593,7 +748,7 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("capabilities", {
-		description: "Capability inventory, router status, coverage report. Subcommands: status, report [--days N], --names/--kind/--query",
+		description: "Capability inventory, router status, coverage report. Subcommands: status, report [--days N], efficacy [--days N] [--window K], --names/--kind/--query",
 		handler: async (args, ctx) => {
 			const argv = (args ?? "").trim().split(/\s+/).filter(Boolean);
 			const days = flagValue(argv, "--days", 14);
@@ -636,6 +791,15 @@ export default function capabilityRouter(pi: ExtensionAPI) {
 					const coverage = await mineCoverage(days, installed);
 					writeJson(join(EXTENSION_DIR, `coverage-${coverage.days}d.json`), coverage);
 					ctx.ui.notify(`${formatCoverage(coverage)}\n\n${session}`, "info");
+					return;
+				}
+				if (argv[0] === "efficacy") {
+					// The number every nudge change is judged against: shown here, used within K calls after.
+					const window = flagValue(argv, "--window", 20);
+					if (!index) rebuild();
+					const efficacy = await efficacyFor(EXTENSION_DIR, days, window, index?.mcpServers ?? []);
+					writeJson(join(EXTENSION_DIR, `efficacy-${efficacy.days}d.json`), efficacy);
+					ctx.ui.notify(formatEfficacy(efficacy), "info");
 					return;
 				}
 

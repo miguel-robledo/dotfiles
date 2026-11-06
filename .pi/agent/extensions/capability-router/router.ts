@@ -27,6 +27,10 @@ export interface RouteMap {
 		timeoutMs?: number;
 		maxWorkstreams?: number;
 	};
+	/** Everything except the watching senior. `enabled: false` isolates `watch.ts` for measurement. */
+	router?: { enabled?: boolean };
+	/** The watching senior: a cheap chat model per turn. See `watch.ts`. */
+	watch?: Partial<import("./watch.ts").WatchSettings>;
 	syntax?: Record<string, string>;
 	purposes?: Record<string, string>;
 }

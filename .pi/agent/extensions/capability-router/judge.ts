@@ -23,8 +23,16 @@ export const MIN_TOP = 0.12;
 /** An option joins the hint when it clears both the absolute and the relative floor. */
 export const MIN_PROBABILITY = 0.05;
 export const RELATIVE_FLOOR = 0.15;
-/** Prompt budget beats completeness: beyond four suggestions the hint becomes a menu. */
-export const MAX_HINTS = 4;
+/**
+ * Prompt budget beats completeness: the hint stops at the second suggestion.
+ *
+ * Measured over 475 hints in 14 days (`/capabilities efficacy`, run-scoped): all 21 that were acted on
+ * came from position 0; the 119 hints in position 2 or later produced none, and the 134 in position 1
+ * produced none either. The tail is dead weight that dilutes the one slot with a signal — but the
+ * second slot is kept because 134 samples cannot prove a 0, and a two-part task would otherwise lose
+ * its second half. One slot is the next step if position 1 is still empty after more data.
+ */
+export const MAX_HINTS = 2;
 /**
  * Agents are held to a higher bar than mcp/skill suggestions. Measured on a real 13-row plan: agent
  * descriptions read "expert X who implements…", so any implementation-shaped step matched one at
