@@ -78,3 +78,6 @@ __pycache__/
 !.omp/plugins/bun.lock
 !.omp/plugins/installed_plugins.json
 !.omp/plugins/omp-plugins.lock.json
+
+# local editor backups (timestamped snapshots, never committed)
+*.bak-*
