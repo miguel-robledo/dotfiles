@@ -4,13 +4,20 @@ These apply to every request, in every project.
 
 ## Access boundaries
 
-- Never connect to a server over SSH without explicit per-session permission.
-  Give the exact read-only command for the user to run instead.
+- Never connect to a server over SSH, and never use scp or sftp. Give the
+  exact read-only command for the user to run instead.
 - Never read, print, or copy credential material: `.env` files, private keys,
   `.ssh`, cloud credential directories, `.npmrc`, `.netrc`, `.pgpass`, GPG
   keyrings, or docker auth config.
-- Never push to a shared branch, force-push, or rewrite published history
-  without explicit permission.
+- Never push to a shared branch or rewrite published history without explicit
+  permission. Force-pushing is denied outright.
+
+## Evidence
+
+- Before claiming something is done, fixed, or passing, run the command that
+  proves it and read the result. Report the actual output, including failures.
+- When evidence contradicts the requested approach, say so and propose the
+  better path instead of following it silently.
 
 ## Asking
 

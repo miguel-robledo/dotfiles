@@ -1,7 +1,9 @@
 tools:
   approvalMode: write
   approval:
-    eval: prompt
+    bash: allow
+    browser: allow
+    eval: allow
 bash:
   patterns:
     - match: sudo
@@ -37,8 +39,9 @@ modelRoles:
   review: ollama/kimi-k3.1-pro:cloud
   smol: ollama/deepseek-v4.1-flash:1017-cloud
   commit: ollama/deepseek-v4.1-flash:1017-cloud
+  task: ollama/deepseek-v4.1-flash:1017-cloud
 skills:
-  enablePiUser: false
+  enablePiUser: true
   enablePiProject: false
   enableAgentsUser: false
 setupVersion: 3
@@ -49,3 +52,5 @@ task:
 cycleOrder:
   - default
   - slow
+browser:
+  headless: false
