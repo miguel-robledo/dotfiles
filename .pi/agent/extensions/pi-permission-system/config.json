@@ -5,6 +5,8 @@
       "*": "allow",
       "*.env": "deny",
       "*.env.*": "deny",
+      "*.env*": "deny",
+      "*/.env*": "deny",
       "*.env.example": "allow",
       "*.envrc": "deny",
       "*.pem": "deny",
@@ -23,7 +25,19 @@
       "*.pgpass": "deny",
       ".docker/config.json": "deny",
       "*/.docker/config.json": "deny",
-      "~/.config/fish/fish_variables": "deny"
+      "~/.config/fish/fish_variables": "deny",
+      "*.p12": "deny",
+      "*.pfx": "deny",
+      "*.jks": "deny",
+      "*.keystore": "deny",
+      "*.ovpn": "deny",
+      "*.kdbx": "deny",
+      ".git-credentials": "deny",
+      "*/.git-credentials": "deny",
+      "~/.config/gh/**": "deny",
+      "~/.kube/**": "deny",
+      "~/.config/gcloud/**": "deny",
+      "~/.password-store/**": "deny"
     },
     "bash": {
       "*": "allow",
@@ -39,7 +53,17 @@
       "sftp *": "deny",
       "sftp": "deny",
       "rsync *": "deny",
-      "git push --force*": "deny"
+      "git push --force*": "deny",
+      "node -e *": "deny",
+      "node --eval *": "deny",
+      "bun -e *": "deny",
+      "python -c *": "deny",
+      "python3 -c *": "deny",
+      "php -r *": "deny",
+      "perl -e *": "deny",
+      "ruby -e *": "deny",
+      "deno eval *": "deny",
+      "eval *": "deny"
     },
     "external_directory": "allow"
   }

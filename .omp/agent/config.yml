@@ -26,6 +26,24 @@ bash:
       approval: deny
     - match: git push -f*
       approval: deny
+bashInterceptor:
+  enabled: true
+compaction:
+  methodOrder: [snapcompact, handoff, shake, soft]
+defaultThinkingLevel: max
+providers:
+  autoThinkingMaxEffort: max
+disabledProviders:
+  - amazon-bedrock
+  - bedrock-mantle
+  - gitlab-duo
+  - gitlab-duo-agent
+  - lm-studio
+  - llama.cpp
+enabledModels:
+  - "ollama/kimi-k3.1-pro:cloud"
+  - "ollama/deepseek-v4.1-flash:1017-cloud"
+  - "ollama/mimo-v2.6-pro:cloud"
 memory:
   backend: mnemopi
 mnemopi:
@@ -40,15 +58,25 @@ modelRoles:
   smol: ollama/deepseek-v4.1-flash:1017-cloud
   commit: ollama/deepseek-v4.1-flash:1017-cloud
   task: ollama/deepseek-v4.1-flash:1017-cloud
+retry:
+  fallbackChains:
+    "ollama/kimi-k3.1-pro:cloud":
+      - "ollama/deepseek-v4.1-flash:1017-cloud"
+    "ollama/deepseek-v4.1-flash:1017-cloud":
+      - "ollama/mimo-v2.6-pro:cloud"
 skills:
   enablePiUser: true
   enablePiProject: false
   enableAgentsUser: false
 setupVersion: 3
 task:
+  maxEffort: max
   agentModelOverrides:
-    reviewer: "@review"
-    security-reviewer: "@review"
+    reviewer: "@review:max"
+    security-reviewer: "@review:max"
+    task: "@task:max"
+    sonic: "@smol:max"
+    scout: "@smol:max"
 cycleOrder:
   - default
   - slow
