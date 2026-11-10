@@ -3,7 +3,11 @@
   "mcpServers": {
     "semgrep": {
       "command": "/home/miguel/.local/bin/semgrep",
-      "args": ["mcp"]
+      "args": ["mcp"],
+      "env": {
+        "SEMGREP_MCP_DISABLE_TRACING": "true"
+      },
+      "timeout": 120000
     }
   },
   "disabledServers": ["postgres-best-practices:supabase"]

@@ -19,6 +19,21 @@ These apply to every request, in every project.
 - When evidence contradicts the requested approach, say so and propose the
   better path instead of following it silently.
 
+## Capability use
+
+Use omp's native capabilities before generic substitutes. If one is unavailable or
+insufficient, say so and name the fallback.
+
+- Code intelligence: use LSP for definitions, references, implementations, hover,
+  symbols, diagnostics, rename, and code actions. Use `read`/`grep` for raw text,
+  non-code files, or when no LSP server matches; say which.
+- Skills: when a discovered skill matches the task, read `skill://<name>` before
+  proceeding. Use the `security-review` skill for security audits.
+- Verification: use LSP diagnostics, tests, and `debug` for runtime failures; use
+  `browser`/`eval` for UI verification; do not guess when evidence is obtainable.
+- Tools: use `read`, `grep`, `glob`, `edit`, `lsp`, `debug`, MCP tools, and other
+  native tools instead of shell equivalents; use `bash` only for shell-only work.
+
 ## Asking
 
 Present researched options with trade-offs and a recommendation before acting on:

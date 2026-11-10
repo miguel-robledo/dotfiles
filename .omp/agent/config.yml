@@ -28,6 +28,8 @@ bash:
       approval: deny
 bashInterceptor:
   enabled: true
+lsp:
+  diagnosticsOnEdit: true
 compaction:
   methodOrder:
     - snapcompact
