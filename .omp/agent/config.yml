@@ -74,7 +74,19 @@ skills:
   enablePiUser: true
   enablePiProject: false
   enableAgentsUser: false
-setupVersion: 3
+  ignoredSkills:
+    # superpowers: keep brainstorming, systematic-debugging, test-driven-development,
+    # receiving-code-review, writing-skills, verification-before-completion
+    - diagnosing-superpowers
+    - dispatching-parallel-agents
+    - executing-plans
+    - finishing-a-development-branch
+    - requesting-code-review
+    - subagent-driven-development
+    - using-git-worktrees
+    - using-superpowers
+    - writing-plans
+  setupVersion: 3
 task:
   maxEffort: max
   agentModelOverrides:

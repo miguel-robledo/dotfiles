@@ -18,6 +18,24 @@
         "installedAt": "2026-11-06T15:53:57.563Z",
         "lastUpdated": "2026-11-06T15:53:57.563Z"
       }
+    ],
+    "superpowers@superpowers-dev": [
+      {
+        "scope": "user",
+        "installPath": "/home/miguel/.omp/plugins/cache/plugins/superpowers-dev___superpowers___7.0.2",
+        "version": "7.0.2",
+        "installedAt": "2026-11-10T19:43:46.806Z",
+        "lastUpdated": "2026-11-10T19:43:46.806Z"
+      }
+    ],
+    "impeccable@impeccable": [
+      {
+        "scope": "user",
+        "installPath": "/home/miguel/.omp/plugins/cache/plugins/impeccable___impeccable___4.8.2",
+        "version": "4.8.2",
+        "installedAt": "2026-11-10T19:43:48.752Z",
+        "lastUpdated": "2026-11-10T19:43:48.752Z"
+      }
     ]
   }
 }

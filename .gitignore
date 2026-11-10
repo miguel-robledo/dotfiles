@@ -64,6 +64,7 @@ __pycache__/
 # ---- omp (oh-my-pi): config only, never runtime state or credentials ----
 !.omp
 .omp/*
+!.omp/marketplaces.json
 !.omp/agent
 .omp/agent/*
 !.omp/agent/AGENTS.md
@@ -71,8 +72,11 @@ __pycache__/
 !.omp/agent/config.yml
 !.omp/agent/models.yml
 !.omp/agent/mcp.json
+!.omp/agent/lsp.json
 !.omp/agent/hooks
 !.omp/agent/skills
+!.omp/agent/agents
+!.omp/agent/extensions
 !.omp/plugins
 .omp/plugins/*
 !.omp/plugins/package.json
