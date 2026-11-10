@@ -29,7 +29,11 @@ bash:
 bashInterceptor:
   enabled: true
 compaction:
-  methodOrder: [snapcompact, handoff, shake, soft]
+  methodOrder:
+    - snapcompact
+    - handoff
+    - shake
+    - soft
 defaultThinkingLevel: max
 providers:
   autoThinkingMaxEffort: max
@@ -41,9 +45,9 @@ disabledProviders:
   - lm-studio
   - llama.cpp
 enabledModels:
-  - "ollama/kimi-k3.1-pro:cloud"
-  - "ollama/deepseek-v4.1-flash:1017-cloud"
-  - "ollama/mimo-v2.6-pro:cloud"
+  - ollama/kimi-k3.1-pro:cloud
+  - ollama/deepseek-v4.1-flash:1017-cloud
+  - ollama/mimo-v2.6-pro:cloud
 memory:
   backend: mnemopi
 mnemopi:
@@ -60,10 +64,10 @@ modelRoles:
   task: ollama/deepseek-v4.1-flash:1017-cloud
 retry:
   fallbackChains:
-    "ollama/kimi-k3.1-pro:cloud":
-      - "ollama/deepseek-v4.1-flash:1017-cloud"
-    "ollama/deepseek-v4.1-flash:1017-cloud":
-      - "ollama/mimo-v2.6-pro:cloud"
+    ollama/kimi-k3.1-pro:cloud:
+      - ollama/deepseek-v4.1-flash:1017-cloud
+    ollama/deepseek-v4.1-flash:1017-cloud:
+      - ollama/mimo-v2.6-pro:cloud
 skills:
   enablePiUser: true
   enablePiProject: false
@@ -82,3 +86,5 @@ cycleOrder:
   - slow
 browser:
   headless: false
+security:
+  enabled: true
