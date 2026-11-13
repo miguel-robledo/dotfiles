@@ -1,1 +1,0 @@
-/home/miguel/.pi/agent/agents/testing-reality-checker.md

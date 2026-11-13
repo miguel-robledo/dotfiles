@@ -1,10 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json",
   "mcpServers": {
-    "codebase-memory-mcp": {
-      "command": "/home/miguel/.local/bin/codebase-memory-mcp",
-      "args": []
-    },
     "semgrep": {
       "command": "/home/miguel/.local/bin/semgrep",
       "args": ["mcp"],

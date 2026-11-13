@@ -7,7 +7,7 @@
       "sourceUri": "anthropics/skills",
       "catalogPath": "/home/miguel/.omp/plugins/cache/marketplaces/anthropic-agent-skills/marketplace.json",
       "addedAt": "2026-11-06T15:53:32.553Z",
-      "updatedAt": "2026-11-10T12:23:48.791Z"
+      "updatedAt": "2026-11-12T20:47:55.980Z"
     },
     {
       "name": "supabase-agent-skills",
@@ -15,7 +15,7 @@
       "sourceUri": "supabase/agent-skills",
       "catalogPath": "/home/miguel/.omp/plugins/cache/marketplaces/supabase-agent-skills/marketplace.json",
       "addedAt": "2026-11-06T15:53:33.547Z",
-      "updatedAt": "2026-11-10T12:23:49.652Z"
+      "updatedAt": "2026-11-12T20:47:56.863Z"
     },
     {
       "name": "claude-code-workflows",
@@ -23,7 +23,7 @@
       "sourceUri": "wshobson/agents",
       "catalogPath": "/home/miguel/.omp/plugins/cache/marketplaces/claude-code-workflows/marketplace.json",
       "addedAt": "2026-11-06T15:53:47.145Z",
-      "updatedAt": "2026-11-10T12:23:51.561Z"
+      "updatedAt": "2026-11-12T20:47:58.607Z"
     },
     {
       "name": "impeccable",
@@ -31,7 +31,7 @@
       "sourceUri": "pbakaus/impeccable",
       "catalogPath": "/home/miguel/.omp/plugins/cache/marketplaces/impeccable/marketplace.json",
       "addedAt": "2026-11-10T19:43:34.586Z",
-      "updatedAt": "2026-11-10T19:43:34.586Z"
+      "updatedAt": "2026-11-12T20:48:01.183Z"
     },
     {
       "name": "superpowers-dev",
@@ -39,7 +39,7 @@
       "sourceUri": "obra/superpowers",
       "catalogPath": "/home/miguel/.omp/plugins/cache/marketplaces/superpowers-dev/marketplace.json",
       "addedAt": "2026-11-10T19:43:44.181Z",
-      "updatedAt": "2026-11-10T19:43:44.181Z"
+      "updatedAt": "2026-11-12T20:48:02.259Z"
     }
   ]
 }

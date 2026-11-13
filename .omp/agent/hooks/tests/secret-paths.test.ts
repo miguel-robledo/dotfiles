@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { offendingPath } from "../pre/secret-paths";
+import guard, { blockedText, offendingPath } from "../pre/secret-paths";
 
 const denied = [
   "/repo/.env",
@@ -78,4 +78,41 @@ test("resolves symlinks", () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("blocks the protected servers directory", () => {
+  expect(offendingPath({ path: "~/Documents/servers/keys/id_rsa" })).toBe(
+    "~/Documents/servers/keys/id_rsa",
+  );
+  expect(offendingPath({ path: "/home/miguel/Documents/servers" })).toBe(
+    "/home/miguel/Documents/servers",
+  );
+  expect(offendingPath({ path: "/home/miguel/Documents/servers-notes.md" })).toBeUndefined();
+});
+
+test("blocks shell and eval references to protected paths", () => {
+  expect(blockedText("cat ~/Documents/servers/keys/a")).toBeDefined();
+  expect(blockedText("const p = '/home/miguel/Documents/servers'")).toBeDefined();
+  expect(blockedText("git status")).toBeUndefined();
+});
+
+test("hook blocks bash and eval payloads", () => {
+  type Handler = (
+    event: { toolName: string; input?: Record<string, unknown> },
+    ctx: { cwd: string },
+  ) => unknown;
+  let handler: Handler | undefined;
+  // Test double: only on() is exercised.
+  guard({
+    on: (_name: string, cb: Handler) => {
+      handler = cb;
+    },
+  } as unknown as Parameters<typeof guard>[0]);
+  const call = (toolName: string, input: Record<string, unknown>) =>
+    handler!({ toolName, input }, { cwd: "/repo" });
+  expect(call("bash", { command: "ls ~/Documents/servers" })).toMatchObject({ block: true });
+  expect(call("eval", { code: "readFile('/home/miguel/Documents/servers/keys/a')" })).toMatchObject({
+    block: true,
+  });
+  expect(call("bash", { command: "git status" })).toBeUndefined();
 });

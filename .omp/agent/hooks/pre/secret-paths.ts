@@ -1,13 +1,22 @@
 // Blocks reads and writes of credential material across auto-approved file tools.
-// Bash/eval are exec-tier and approval-gated separately; this is not a sandbox.
+// Bash/eval are exec-tier; their payloads are also screened for protected paths.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
 
-type Rule = { re: RegExp; allow?: RegExp };
+type Rule = { re: RegExp; allow?: RegExp; reason?: string };
+
+const PROTECTED_TEXT = /Documents\/servers\b/i;
+const PROTECTED_REASON =
+  "~/Documents/servers is a protected directory. Ask the user to handle it directly.";
 
 const RULES: Rule[] = [
+  // Explicitly protected project directory.
+  {
+    re: /(^|\/)Documents\/servers(\/|$)/i,
+    reason: PROTECTED_REASON,
+  },
   // Environment files, except checked-in templates.
   {
     re: /(^|\/)\.env(?:$|\.)/i,
@@ -66,6 +75,7 @@ const FILE_TOOLS: Record<string, true> = {
   write: true,
   edit: true,
   ast_edit: true,
+  glob: true,
   grep: true,
   ast_grep: true,
   find: true,
@@ -157,7 +167,9 @@ function findOffense(raw: string, cwd: string): Offense | undefined {
         if (rule.allow?.test(normalized)) continue;
         return {
           target: raw,
-          reason: `Blocked: ${candidate} looks like credential material. Ask the user to handle it directly.`,
+          reason:
+            rule.reason ??
+            `Blocked: ${candidate} looks like credential material. Ask the user to handle it directly.`,
         };
       }
     }
@@ -177,6 +189,19 @@ function findOffenseIn(input: Record<string, unknown>, cwd: string): Offense | u
   return undefined;
 }
 
+function flattenInput(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(flattenInput).join("\n");
+  if (value && typeof value === "object") {
+    return Object.values(value).map(flattenInput).join("\n");
+  }
+  return "";
+}
+
+export function blockedText(value: string): string | undefined {
+  return PROTECTED_TEXT.test(value) ? PROTECTED_REASON : undefined;
+}
+
 export function offendingPath(
   input: Record<string, unknown>,
   cwd = process.cwd(),
@@ -186,9 +211,14 @@ export function offendingPath(
 
 export default function secretPathGuard(pi: ExtensionAPI) {
   pi.on("tool_call", (event, ctx) => {
-    if (!FILE_TOOLS[event.toolName]) return;
     const input = event.input as Record<string, unknown> | undefined;
     if (!input) return;
+    if (event.toolName === "bash" || event.toolName === "eval") {
+      const reason = blockedText(flattenInput(input));
+      if (!reason) return;
+      return { block: true, reason: `Blocked: ${reason}` };
+    }
+    if (!FILE_TOOLS[event.toolName]) return;
     const hit = findOffenseIn(input, ctx.cwd ?? process.cwd());
     if (!hit) return;
     return { block: true, reason: hit.reason };

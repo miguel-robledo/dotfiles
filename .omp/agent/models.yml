@@ -18,8 +18,8 @@ providers:
         input: [text, image]
         contextWindow: 1048576
         maxTokens: 32768
-      - id: mimo-v2.6-pro:cloud
-        name: MiMo v2.6 Pro (Ollama cloud)
+      - id: inkling-2-small:cloud
+        name: Inkling 2 Small (Ollama cloud)
         reasoning: true
         input: [text, image]
         contextWindow: 1048576

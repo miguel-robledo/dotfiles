@@ -9,6 +9,7 @@ These apply to every request, in every project.
 - Never read, print, or copy credential material: `.env` files, private keys,
   `.ssh`, cloud credential directories, `.npmrc`, `.netrc`, `.pgpass`, GPG
   keyrings, or docker auth config.
+- Never read or copy anything under `~/Documents/servers`.
 - Never push to a shared branch or rewrite published history without explicit
   permission. Force-pushing is denied outright.
 
@@ -33,6 +34,15 @@ insufficient, say so and name the fallback.
   `browser`/`eval` for UI verification; do not guess when evidence is obtainable.
 - Tools: use `read`, `grep`, `glob`, `edit`, `lsp`, `debug`, MCP tools, and other
   native tools instead of shell equivalents; use `bash` only for shell-only work.
+
+## Blocked work
+
+- A step that only the user can unblock (login, missing tool or binary,
+  permission, unreachable service) ends the attempt: report it with the exact
+  command or click needed, then wait. Do not swap in another method, narrow
+  the requirement, or move on to unrelated work unless the user says so.
+- Fall back to a different method only when the user approved that fallback or
+  AGENTS.md names it as the default way to do that check.
 
 ## Asking
 

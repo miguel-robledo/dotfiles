@@ -30,6 +30,7 @@ bashInterceptor:
   enabled: true
 lsp:
   diagnosticsOnEdit: true
+  requestTimeout: 30
 compaction:
   methodOrder:
     - snapcompact
@@ -49,13 +50,13 @@ disabledProviders:
 enabledModels:
   - ollama/kimi-k3.1-pro:cloud
   - ollama/deepseek-v4.1-flash:1017-cloud
-  - ollama/mimo-v2.6-pro:cloud
+  - ollama/inkling-2-small:cloud
 memory:
   backend: mnemopi
 mnemopi:
-  scoping: per-project
+  scoping: per-project-tagged
   noEmbeddings: true
-  llmMode: none
+  llmMode: smol
 modelRoles:
   default: ollama/deepseek-v4.1-flash:1017-cloud
   slow: ollama/kimi-k3.1-pro:cloud
@@ -64,19 +65,18 @@ modelRoles:
   smol: ollama/deepseek-v4.1-flash:1017-cloud
   commit: ollama/deepseek-v4.1-flash:1017-cloud
   task: ollama/deepseek-v4.1-flash:1017-cloud
+  memory: ollama/deepseek-v4.1-flash:1017-cloud
 retry:
   fallbackChains:
     ollama/kimi-k3.1-pro:cloud:
       - ollama/deepseek-v4.1-flash:1017-cloud
     ollama/deepseek-v4.1-flash:1017-cloud:
-      - ollama/mimo-v2.6-pro:cloud
+      - ollama/inkling-2-small:cloud
 skills:
   enablePiUser: true
   enablePiProject: false
   enableAgentsUser: false
   ignoredSkills:
-    # superpowers: keep brainstorming, systematic-debugging, test-driven-development,
-    # receiving-code-review, writing-skills, verification-before-completion
     - diagnosing-superpowers
     - dispatching-parallel-agents
     - executing-plans
@@ -88,6 +88,7 @@ skills:
     - writing-plans
   setupVersion: 3
 task:
+  enableLsp: true
   maxEffort: max
   agentModelOverrides:
     reviewer: "@review:max"
@@ -100,5 +101,7 @@ cycleOrder:
   - slow
 browser:
   headless: false
+  cdpUrl: http://127.0.0.1:9222
 security:
   enabled: true
+setupVersion: 3
